@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { Droplets, Lock, User, ChevronRight, ShieldCheck, AlertCircle, UserPlus, UserCheck, ArrowLeft } from 'lucide-react';
+import { Lock, User, ChevronRight, ShieldCheck, AlertCircle, UserPlus, UserCheck, ArrowLeft } from 'lucide-react';
+import Logo from './Logo';
 
 interface Props {
   onLogin: (username: string) => void;
@@ -69,9 +70,7 @@ const Login: React.FC<Props> = ({ onLogin, darkMode }) => {
 
       <div className={`w-full max-w-[460px] z-10 p-8 lg:p-12 rounded-[40px] border shadow-2xl transition-all duration-500 animate-in fade-in zoom-in-95 ${darkMode ? 'bg-slate-900/80 border-slate-800 shadow-black' : 'bg-white/90 border-slate-100 shadow-slate-200'}`}>
         <div className="flex flex-col items-center mb-10">
-          <div className="bg-red-600 p-4 rounded-3xl shadow-2xl shadow-red-600/30 mb-6 animate-bounce-slow">
-            <Droplets className="text-white w-10 h-10" />
-          </div>
+          <Logo size="lg" className="mb-6 drop-shadow-2xl animate-in zoom-in-75 duration-1000" />
           <h1 className="text-2xl font-black tracking-tight uppercase mb-2">
             {mode === 'login' ? 'Connexion' : 'Inscription'} <span className="text-red-600">HÉMOSTATS CI</span>
           </h1>
