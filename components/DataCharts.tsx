@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -10,8 +10,8 @@ import {
   ResponsiveContainer, 
   Cell,
   Legend,
-  AreaChart,
-  Area
+  PieChart,
+  Pie
 } from 'recharts';
 import { DistributionRow } from '../types';
 import { BLOOD_GROUPS } from '../constants';
@@ -29,26 +29,46 @@ const DataCharts: React.FC<Props> = ({ data, title, darkMode }) => {
     value: data.reduce((acc, row) => acc + (row.counts[group] || 0), 0)
   }));
 
-  // Prep data for product breakdown chart with smart coloring
-  const productData = data.map(row => {
-    let color = '#ef4444'; // default CGR red
-    const type = row.productType.toUpperCase();
-    
-    if (type.includes('PLASMA')) {
-      color = '#eab308'; // Pure Yellow
-    } else if (type.includes('PLAQUETTES')) {
-      color = '#fde047'; // Light Yellow (yellow-300 for visibility)
-    }
+  // Agrégation cumulative par type de produit avec attribution de couleurs spécifiques
+  const productData = useMemo(() => {
+    const aggregation: Record<string, { total: number, color: string }> = {};
 
-    return {
-      name: row.productType.split(' ')[0] + '...',
-      total: row.total,
-      fullName: row.productType,
-      color: color
-    };
-  }).filter(d => d.total > 0);
+    data.forEach(row => {
+      const type = row.productType.trim().toUpperCase();
+      let color = '#ef4444'; // Rouge par défaut (CGR)
+      
+      if (type.includes('ADULTE')) {
+        color = '#ef4444'; // Rouge (CGR Adulte)
+      } else if (type.includes('PEDIATRIQUE')) {
+        color = '#10b981'; // Vert (CGR Pédiatrique)
+      } else if (type.includes('NOURRISON')) {
+        color = '#f97316'; // Orange (CGR Nourrisson)
+      } else if (type.includes('PLASMA')) {
+        color = '#eab308'; // Jaune Pur (Plasma)
+      } else if (type.includes('PLAQUETTES')) {
+        color = '#fde047'; // Jaune Clair (Plaquettes)
+      } else if (type.includes('CGR')) {
+        color = '#dc2626'; // Rouge Foncé pour les autres CGR
+      }
 
-  const colors = [
+      if (!aggregation[type]) {
+        aggregation[type] = { total: 0, color };
+      }
+      aggregation[type].total += row.total;
+    });
+
+    return Object.entries(aggregation)
+      .map(([name, stats]) => ({
+        name,
+        total: stats.total,
+        fullName: name,
+        color: stats.color
+      }))
+      .filter(d => d.total > 0)
+      .sort((a, b) => b.total - a.total);
+  }, [data]);
+
+  const bloodGroupColors = [
     '#ef4444', '#3b82f6', '#10b981', '#f59e0b', 
     '#8b5cf6', '#ec4899', '#06b6d4', '#71717a'
   ];
@@ -78,7 +98,7 @@ const DataCharts: React.FC<Props> = ({ data, title, darkMode }) => {
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {groupData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.value > 0 ? colors[index % colors.length] : (darkMode ? '#1e293b' : '#f1f5f9')} />
+                  <Cell key={`cell-${index}`} fill={entry.value > 0 ? bloodGroupColors[index % bloodGroupColors.length] : (darkMode ? '#1e293b' : '#f1f5f9')} />
                 ))}
               </Bar>
             </BarChart>
@@ -86,33 +106,52 @@ const DataCharts: React.FC<Props> = ({ data, title, darkMode }) => {
         </div>
       </div>
 
-      {/* Product Category Breakdown with Custom Colors */}
+      {/* Product Category Breakdown with Cumulative Pie Chart and Custom Colors */}
       <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
         <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-          Distribution Par Type de Produit
+          Distribution Par Type (Cumul National)
         </h3>
         <div className="h-64 w-full">
           {productData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={productData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? '#334155' : '#e2e8f0'} />
-                <XAxis dataKey="name" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={10} axisLine={false} tickLine={false} />
-                <YAxis stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={12} axisLine={false} tickLine={false} />
+              <PieChart>
+                <Pie
+                  data={productData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={4}
+                  dataKey="total"
+                  nameKey="name"
+                  stroke="none"
+                >
+                  {productData.map((entry, index) => (
+                    <Cell key={`cell-product-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: darkMode ? '#0f172a' : '#fff', 
                     borderColor: darkMode ? '#334155' : '#e2e8f0',
-                    borderRadius: '12px'
+                    borderRadius: '12px',
+                    fontSize: '11px',
+                    fontWeight: 'bold'
                   }}
-                  formatter={(value, name, props) => [value, props.payload.fullName]}
+                  formatter={(value) => [value, "Unités"]}
                 />
-                <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                   {productData.map((entry, index) => (
-                      <Cell key={`cell-product-${index}`} fill={entry.color} />
-                    ))}
-                </Bar>
-              </BarChart>
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36} 
+                  iconType="circle"
+                  formatter={(value) => (
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                      {value}
+                    </span>
+                  )}
+                />
+              </PieChart>
             </ResponsiveContainer>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 italic text-sm">
