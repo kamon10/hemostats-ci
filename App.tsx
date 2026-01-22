@@ -40,7 +40,9 @@ import {
   Table,
   Grid,
   Menu,
-  X
+  X,
+  BrainCircuit,
+  Sparkles
 } from 'lucide-react';
 import { INITIAL_DATA, BLOOD_GROUPS, AVAILABLE_SITES, GET_DATA_FOR_SITE, MONTHS, PRODUCT_TYPES, DAYS, YEARS } from './constants';
 import DistributionTable from './components/DistributionTable';
@@ -74,7 +76,7 @@ const App: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>('Janvier');
   const [selectedDay, setSelectedDay] = useState<string>('01');
   const [selectedFacility, setSelectedFacility] = useState<string>('ALL');
-  const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'annual' | 'facilities' | 'synthesis' | 'site_synthesis' | 'product_synthesis'>('synthesis');
+  const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'annual' | 'facilities' | 'synthesis' | 'site_synthesis' | 'product_synthesis' | 'ai_analysis'>('synthesis');
   const [darkMode, setDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [customData, setCustomData] = useState<DistributionRowExtended[] | null>(null);
@@ -100,9 +102,50 @@ const App: React.FC = () => {
     localStorage.removeItem('user');
   };
 
+  // Agrégation des mock data pour "TOUS LES SITES"
+  const nationalMockData = useMemo(() => {
+    const allData: DistributionRowExtended[] = [];
+    const monthlyNationalRows: DistributionRow[] = [];
+    
+    AVAILABLE_SITES.forEach(site => {
+      const sData = GET_DATA_FOR_SITE(site.id, selectedMonth, selectedDay, selectedYear);
+      const rows = activeTab === 'daily' ? sData.dailySite : sData.monthlySite;
+      rows.forEach(r => {
+        allData.push({
+          ...r,
+          site: site.name,
+          facility: r.facility || 'Hôpital Principal'
+        });
+      });
+      // On prend une partie pour le nationalSummary de Gemini
+      monthlyNationalRows.push(...sData.monthlySite);
+    });
+
+    return {
+      daily: allData,
+      monthly: allData,
+      summary: monthlyNationalRows,
+      metadata: {
+        date: `${selectedDay}/${(MONTHS.indexOf(selectedMonth)+1).toString().padStart(2, '0')}/${selectedYear}`,
+        month: selectedMonth.toUpperCase(),
+        site: 'TOUS LES SITES',
+        siteId: 'all'
+      }
+    };
+  }, [selectedMonth, selectedDay, selectedYear, activeTab]);
+
   const mockData = useMemo(() => {
+    if (selectedSiteName === 'TOUS LES SITES') {
+      return {
+        dailySite: nationalMockData.daily,
+        monthlySite: nationalMockData.monthly,
+        monthlyNational: nationalMockData.summary,
+        metadata: nationalMockData.metadata,
+        annualTrend: [] // Géré séparément
+      } as DistributionData;
+    }
     return GET_DATA_FOR_SITE(siteId, selectedMonth, selectedDay, selectedYear);
-  }, [siteId, selectedMonth, selectedDay, selectedYear]);
+  }, [selectedSiteName, siteId, selectedMonth, selectedDay, selectedYear, nationalMockData]);
 
   const filteredData = useMemo(() => {
     if (customData) {
@@ -114,7 +157,7 @@ const App: React.FC = () => {
       if (activeTab === 'daily') {
         const targetDate = `${selectedDay.padStart(2, '0')}/${(MONTHS.indexOf(selectedMonth) + 1).toString().padStart(2, '0')}/${selectedYear}`;
         data = data.filter(row => row.date === targetDate);
-      } else if (['monthly', 'synthesis', 'facilities', 'site_synthesis', 'product_synthesis'].includes(activeTab)) {
+      } else if (['monthly', 'synthesis', 'facilities', 'site_synthesis', 'product_synthesis', 'ai_analysis'].includes(activeTab)) {
         data = data.filter(row => row.month === selectedMonth && row.year === selectedYear);
       } else if (activeTab === 'annual') {
         data = data.filter(row => row.year === selectedYear);
@@ -185,19 +228,20 @@ const App: React.FC = () => {
   const detailedSynthesisData = useMemo(() => {
     const sourceData = customData 
       ? customData.filter(row => row.month === selectedMonth && row.year === selectedYear)
-      : mockData.monthlySite.map(r => ({ ...r, site: selectedSiteName } as DistributionRowExtended));
+      : mockData.monthlySite.map(r => ({ ...r, site: selectedSiteName === 'TOUS LES SITES' ? (r as any).site : selectedSiteName } as DistributionRowExtended));
 
     const aggregation: Record<string, Record<string, Record<BloodGroup, number> & { total: number }>> = {};
     sourceData.forEach(row => {
-      if (!aggregation[row.site]) aggregation[row.site] = {};
-      if (!aggregation[row.site][row.productType]) {
-        aggregation[row.site][row.productType] = {
+      const s = row.site || selectedSiteName;
+      if (!aggregation[s]) aggregation[s] = {};
+      if (!aggregation[s][row.productType]) {
+        aggregation[s][row.productType] = {
           total: 0,
           ...BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: 0 }), {} as Record<BloodGroup, number>)
         };
       }
-      BLOOD_GROUPS.forEach(g => aggregation[row.site][row.productType][g] += row.counts[g] || 0);
-      aggregation[row.site][row.productType].total += row.total;
+      BLOOD_GROUPS.forEach(g => aggregation[s][row.productType][g] += row.counts[g] || 0);
+      aggregation[s][row.productType].total += row.total;
     });
 
     const results: any[] = [];
@@ -228,7 +272,6 @@ const App: React.FC = () => {
       });
     }
     
-    // Si c'est TOUS LES SITES et qu'on utilise le mock, on agrège les mocks
     if (selectedSiteName === 'TOUS LES SITES') {
       const aggregated: MonthlyTrend[] = MONTHS.map((m, idx) => ({
         month: m.substring(0, 3), total: 0, cgr: 0, plasma: 0, plaquettes: 0
@@ -337,13 +380,16 @@ const App: React.FC = () => {
 
   const navigationItems = [
     { id: 'synthesis', icon: Layers, label: 'Tableau de Bord Global' },
+    { id: 'ai_analysis', icon: BrainCircuit, label: 'Analyse IA Gemini' },
     { id: 'site_synthesis', icon: Table, label: 'Synthèse par SITE CNTSCI' },
-    { id: 'product_synthesis', icon: Grid, label: 'Synthèse Distribution des Produits Sanguin par Site' },
+    { id: 'product_synthesis', icon: Grid, label: 'Synthèse Produits par Site' },
     { id: 'daily', icon: Clock, label: 'Synthèse Journalière' },
     { id: 'monthly', icon: Calendar, label: 'Synthèse Mensuelle' },
     { id: 'annual', icon: CalendarDays, label: 'Synthèse Annuelle' },
     { id: 'facilities', icon: Hospital, label: 'Structures Rattachées' }
   ];
+
+  const isNationalView = selectedSiteName === 'TOUS LES SITES';
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
@@ -433,16 +479,17 @@ const App: React.FC = () => {
               {activeTab === 'annual' ? 'ANALYSE ANNUELLE DES PSL' : 
                activeTab === 'daily' ? 'SYNTHÈSE JOURNALIÈRE' : 
                activeTab === 'monthly' ? 'SYNTHÈSE MENSUELLE' : 
+               activeTab === 'ai_analysis' ? 'ANALYSE INTELLIGENTE GEMINI' :
                activeTab === 'site_synthesis' ? 'SYNTHÈSE NATIONALE PAR SITE CNTSCI' : 
                activeTab === 'product_synthesis' ? 'SYNTHESE DISTRIBUTION DES PRODUITS SANGUIN PAR SITE' : 'DISTRIBUTION DES PSL'}
             </h2>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 bg-red-600/10 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-600/20"><MapPin size={12} /> {['site_synthesis', 'product_synthesis'].includes(activeTab) || selectedSiteName === 'TOUS LES SITES' ? 'NIVEAU NATIONAL' : selectedSiteName}</div>
-              <div className="flex items-center gap-2 bg-blue-600/10 text-blue-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-600/20"><Calendar size={12} /> {activeTab !== 'monthly' && activeTab !== 'annual' && !['site_synthesis', 'product_synthesis'].includes(activeTab) && `${selectedDay} `}{selectedMonth} {selectedYear}</div>
+              <div className="flex items-center gap-2 bg-red-600/10 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-600/20"><MapPin size={12} /> {['site_synthesis', 'product_synthesis', 'ai_analysis'].includes(activeTab) || selectedSiteName === 'TOUS LES SITES' ? 'NIVEAU NATIONAL' : selectedSiteName}</div>
+              <div className="flex items-center gap-2 bg-blue-600/10 text-blue-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-600/20"><Calendar size={12} /> {activeTab !== 'monthly' && activeTab !== 'annual' && !['site_synthesis', 'product_synthesis', 'ai_analysis'].includes(activeTab) && `${selectedDay} `}{selectedMonth} {selectedYear}</div>
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-             {!['site_synthesis', 'product_synthesis'].includes(activeTab) && (
+             {!['site_synthesis', 'product_synthesis', 'ai_analysis'].includes(activeTab) && (
                <div className="w-full sm:w-auto bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 flex items-center">
                   <div className="px-3 text-red-600" title="SÉLECTION SITE"><Globe size={16} /></div>
                   <select value={selectedSiteName} onChange={(e) => setSelectedSiteName(e.target.value)} className="w-full bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer pr-8 py-2 min-w-[150px]">{allSitesForSelect.map(s => <option key={s} value={s}>{s}</option>)}</select>
@@ -468,38 +515,10 @@ const App: React.FC = () => {
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
-            { 
-              label: 'Total Distribution', 
-              val: statsTotals.totalDist, 
-              pct: 100,
-              icon: Database, 
-              color: 'text-red-600', 
-              bg: 'bg-red-600/10' 
-            },
-            { 
-              label: 'Total CGR', 
-              val: statsTotals.cgrDist, 
-              pct: statsTotals.cgrPct,
-              icon: Droplets, 
-              color: 'text-red-500', 
-              bg: 'bg-red-500/10' 
-            },
-            { 
-              label: 'Plasma Thérapeutique', 
-              val: statsTotals.plasmaDist, 
-              pct: statsTotals.plasmaPct,
-              icon: Target, 
-              color: 'text-yellow-600', 
-              bg: 'bg-yellow-600/10' 
-            },
-            { 
-              label: 'Concentré de Plaquettes', 
-              val: statsTotals.plaquettesDist, 
-              pct: statsTotals.plaquettesPct,
-              icon: Package, 
-              color: 'text-blue-500', 
-              bg: 'bg-blue-500/10' 
-            }
+            { label: 'Total Distribution', val: statsTotals.totalDist, pct: 100, icon: Database, color: 'text-red-600', bg: 'bg-red-600/10' },
+            { label: 'Total CGR', val: statsTotals.cgrDist, pct: statsTotals.cgrPct, icon: Droplets, color: 'text-red-500', bg: 'bg-red-500/10' },
+            { label: 'Plasma Thérapeutique', val: statsTotals.plasmaDist, pct: statsTotals.plasmaPct, icon: Target, color: 'text-yellow-600', bg: 'bg-yellow-600/10' },
+            { label: 'Concentré de Plaquettes', val: statsTotals.plaquettesDist, pct: statsTotals.plaquettesPct, icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10' }
           ].map((s, i) => (
             <div key={i} className={`p-6 rounded-3xl border transition-all hover:scale-[1.02] relative group ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
               <div className="flex items-center justify-between mb-4">
@@ -524,19 +543,63 @@ const App: React.FC = () => {
           <SiteSynthesis data={siteSynthesisData} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
         ) : activeTab === 'product_synthesis' ? (
           <DetailedSynthesis data={detailedSynthesisData} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
+        ) : activeTab === 'ai_analysis' ? (
+          <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+             <div className={`p-8 lg:p-12 rounded-[48px] border overflow-hidden relative ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-2xl shadow-slate-200'}`}>
+                <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none">
+                  <BrainCircuit size={300} />
+                </div>
+                <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 mb-12">
+                   <div className="p-5 bg-purple-500/10 rounded-[32px] animate-pulse">
+                      <BrainCircuit size={48} className="text-purple-500" />
+                   </div>
+                   <div className="text-center md:text-left">
+                      <h3 className="text-2xl font-black uppercase tracking-tight mb-2">Expertise Prédictive Gemini</h3>
+                      <p className="text-sm font-medium text-slate-500 max-w-xl">
+                        Analyse cognitive avancée de la distribution nationale pour le {selectedMonth} {selectedYear}. Notre IA identifie les schémas critiques et propose des recommandations stratégiques.
+                      </p>
+                   </div>
+                </div>
+                <GeminiInsights data={mockData} currentView="Analyse Approfondie du Réseau National" darkMode={darkMode} />
+             </div>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className={`p-8 rounded-[40px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-slate-400 flex items-center gap-2">
+                     <Sparkles size={14} className="text-amber-500" /> Aide à la décision
+                   </h4>
+                   <p className="text-xs font-bold leading-relaxed text-slate-600 dark:text-slate-300">
+                     Les insights générés sont basés sur les tendances de distribution actuelles et les écarts types observés sur l'ensemble du territoire ivoirien.
+                   </p>
+                </div>
+                <div className={`p-8 rounded-[40px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-4 text-slate-400 flex items-center gap-2">
+                     <Target size={14} className="text-blue-500" /> Objectif National
+                   </h4>
+                   <p className="text-xs font-bold leading-relaxed text-slate-600 dark:text-slate-300">
+                     Optimiser le flux de PSL pour garantir un taux de satisfaction de 100% des besoins transfusionnels dans chaque district sanitaire.
+                   </p>
+                </div>
+             </div>
+          </div>
         ) : (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-               <div className="lg:col-span-2 space-y-8">
+            <div className={`grid grid-cols-1 ${isNationalView ? 'lg:grid-cols-1' : 'lg:grid-cols-3'} gap-8`}>
+               <div className={`${isNationalView ? 'lg:col-span-1' : 'lg:col-span-2'} space-y-8`}>
                  <DataCharts data={filteredData} title={`${activeTab === 'daily' ? 'Journalier' : 'Mensuel'} : ${selectedFacility === 'ALL' ? selectedSiteName : selectedFacility}`} darkMode={darkMode} />
                  <div className={`p-4 lg:p-8 rounded-3xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
-                    <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-6 flex items-center gap-2"><FileSpreadsheet size={16} className="text-red-600" /> Détails Distributions ({selectedSiteName})</h3>
+                    <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+                      <FileSpreadsheet size={16} className="text-red-600" /> 
+                      Détails Distributions ({selectedSiteName})
+                    </h3>
                     <DistributionTable data={filteredData} darkMode={darkMode} />
                  </div>
                </div>
-               <div className="space-y-6">
-                 <GeminiInsights data={mockData} currentView={activeTab === 'daily' ? "Synthèse Journalière" : "Synthèse Mensuelle"} darkMode={darkMode} />
-               </div>
+               {!isNationalView && (
+                 <div className="space-y-6">
+                   <GeminiInsights data={mockData} currentView={activeTab === 'daily' ? "Synthèse Journalière" : "Synthèse Mensuelle"} darkMode={darkMode} />
+                 </div>
+               )}
             </div>
           </div>
         )}
