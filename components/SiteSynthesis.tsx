@@ -3,17 +3,13 @@ import React, { useMemo } from 'react';
 import { BLOOD_GROUPS } from '../constants';
 import { BloodGroup } from '../types';
 import { 
-  ScatterChart, 
-  Scatter, 
-  XAxis, 
-  YAxis, 
-  ZAxis,
-  CartesianGrid, 
+  PieChart, 
+  Pie, 
+  Cell, 
   Tooltip, 
-  ResponsiveContainer, 
-  Cell
+  ResponsiveContainer
 } from 'recharts';
-import { FileSpreadsheet, Hash, Activity, Sparkles } from 'lucide-react';
+import { FileSpreadsheet, Hash, Activity, PieChart as PieIcon, Info } from 'lucide-react';
 
 interface Props {
   data: any[];
@@ -23,61 +19,48 @@ interface Props {
 }
 
 const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
-  const bloodColors: Record<BloodGroup, string> = {
-    'A+': '#ef4444',
-    'A-': '#f87171',
-    'B+': '#3b82f6',
-    'B-': '#60a5fa',
-    'AB+': '#10b981',
-    'AB-': '#34d399',
-    'O+': '#f59e0b',
-    'O-': '#fbbf24'
-  };
+  // Couleurs distinctes pour les différents sites CNTSCI
+  const siteColors = [
+    '#E11D48', // Rose/Red (Treichville)
+    '#2563EB', // Blue (Bouake)
+    '#059669', // Green (Korhogo)
+    '#D97706', // Amber (San Pedro)
+    '#7C3AED', // Violet (Daloa)
+    '#0891B2', // Cyan (Yamoussoukro)
+    '#4F46E5', // Indigo
+    '#BE123C', // Rose 700
+    '#1D4ED8', // Blue 700
+    '#047857', // Green 700
+  ];
 
-  // Création des données éparpillées avec Jittering
-  const scatteredData = useMemo(() => {
-    const points: any[] = [];
-    const sortedData = [...data].sort((a, b) => b.total - a.total);
-    
-    sortedData.forEach((siteRow, sIdx) => {
-      const siteShortName = siteRow.site.replace('CRTS ', '').replace('SITE ', '');
-      
-      BLOOD_GROUPS.forEach((group, gIdx) => {
-        const value = siteRow[group] || 0;
-        if (value > 0) {
-          // Ajout de "jitter" (bruit aléatoire contrôlé) pour l'effet éparpillé
-          // X est basé sur l'index du groupe (0-7) + jitter
-          // Y est basé sur l'index du site + jitter
-          points.push({
-            x: gIdx * 10 + (Math.random() * 6 - 3), // Centre sur 0, 10, 20... avec écart de +/- 3
-            y: (sortedData.length - sIdx) * 10 + (Math.random() * 6 - 3),
-            value: value,
-            group: group,
-            site: siteShortName,
-            fullSite: siteRow.site,
-            size: value
-          });
-        }
-      });
-    });
-    return points;
+  const pieData = useMemo(() => {
+    return data
+      .map(row => ({
+        name: row.site.replace('CRTS ', '').replace('SITE ', ''),
+        fullName: row.site,
+        value: row.total
+      }))
+      .sort((a, b) => b.value - a.value);
   }, [data]);
+
+  const totalNational = useMemo(() => pieData.reduce((sum, item) => sum + item.value, 0), [pieData]);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const info = payload[0].payload;
+      const pct = totalNational > 0 ? ((info.value / totalNational) * 100).toFixed(1) : 0;
       return (
-        <div className={`p-4 rounded-2xl border shadow-2xl backdrop-blur-md ${darkMode ? 'bg-slate-900/90 border-slate-700' : 'bg-white/90 border-slate-100'}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: bloodColors[info.group as BloodGroup] }}></div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{info.fullSite}</p>
-          </div>
-          <div className="flex items-center gap-4">
-             <div className="text-3xl font-black text-slate-800 dark:text-white">{info.group}</div>
-             <div className="h-8 w-px bg-slate-200 dark:bg-slate-700"></div>
+        <div className={`p-5 rounded-[24px] border shadow-2xl backdrop-blur-xl ${darkMode ? 'bg-slate-900/90 border-slate-700' : 'bg-white/90 border-slate-100'}`}>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 border-b border-slate-200 dark:border-slate-700 pb-2">{info.fullName}</p>
+          <div className="flex items-center gap-5">
              <div>
-               <p className="text-xl font-black text-red-600 tabular-nums">{info.value}</p>
-               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Unités distribuées</p>
+               <p className="text-2xl font-black text-slate-800 dark:text-white tabular-nums">{info.value.toLocaleString('fr-FR')}</p>
+               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Unités Distribuées</p>
+             </div>
+             <div className="h-10 w-px bg-slate-200 dark:bg-slate-700"></div>
+             <div>
+               <p className="text-2xl font-black text-red-600 tabular-nums">{pct}%</p>
+               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Part Nationale</p>
              </div>
           </div>
         </div>
@@ -88,103 +71,85 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-      {/* Nuage de Bulles Éparpillées */}
-      <div className={`p-8 rounded-[40px] border relative overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
-        <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-          <Sparkles size={120} />
-        </div>
-        
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-12 relative z-10">
+      {/* Graphique en Camembert (Donut) */}
+      <div className={`p-8 lg:p-12 rounded-[40px] border relative overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 relative z-10">
           <div>
-            <h3 className="text-xs font-black uppercase tracking-[0.4em] mb-2 flex items-center gap-2">
-              <Activity size={16} className="text-red-600 animate-pulse" />
-              Nuage de Distribution National ({month} {year})
+            <h3 className="text-sm font-black uppercase tracking-[0.4em] mb-2 flex items-center gap-2">
+              <PieIcon size={18} className="text-red-600" />
+              Répartition par SITE CNTSCI ({month} {year})
             </h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Visualisation organique des volumes par groupe et par centre</p>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Analyse comparative des parts de marché nationales</p>
           </div>
-        </div>
-
-        <div className="h-[600px] w-full relative z-10">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
-              <defs>
-                {BLOOD_GROUPS.map(g => (
-                  <radialGradient key={`grad-${g}`} id={`grad-${g}`} cx="30%" cy="30%" r="50%">
-                    <stop offset="0%" stopColor="white" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor={bloodColors[g]} stopOpacity={0.8} />
-                  </radialGradient>
-                ))}
-              </defs>
-              
-              <CartesianGrid 
-                strokeDasharray="10 10" 
-                stroke={darkMode ? '#334155' : '#f1f5f9'} 
-                vertical={false} 
-                horizontal={false}
-              />
-              
-              <XAxis 
-                type="number" 
-                dataKey="x" 
-                hide 
-                domain={[-5, 75]}
-              />
-              
-              <YAxis 
-                type="number" 
-                dataKey="y" 
-                hide 
-                domain={[0, (data.length + 1) * 10]}
-              />
-
-              <ZAxis 
-                type="number" 
-                dataKey="size" 
-                range={[100, 4000]} 
-              />
-              
-              <Tooltip 
-                content={<CustomTooltip />} 
-                cursor={{ strokeDasharray: '3 3', stroke: '#cbd5e1', strokeWidth: 1 }} 
-              />
-              
-              <Scatter 
-                data={scatteredData} 
-                animationBegin={0} 
-                animationDuration={2000} 
-                animationEasing="ease-out"
-              >
-                {scatteredData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={`url(#grad-${entry.group})`}
-                    className="hover:scale-110 transition-transform duration-500 cursor-pointer drop-shadow-xl"
-                    style={{ filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.1))' }}
-                  />
-                ))}
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
-
-          {/* Labels des Groupes Sanguins en bas */}
-          <div className="absolute bottom-0 left-0 w-full flex justify-between px-[6%] pointer-events-none">
-            {BLOOD_GROUPS.map(g => (
-              <div key={g} className="flex flex-col items-center">
-                <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mb-2"></div>
-                <span className="text-[11px] font-black text-slate-400 dark:text-slate-500">{g}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Légende flottante */}
-        <div className="mt-12 flex flex-wrap justify-center gap-6">
-          {BLOOD_GROUPS.map(g => (
-            <div key={g} className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 transition-all hover:border-red-500/30">
-              <div className="w-3 h-3 rounded-full shadow-inner" style={{ backgroundColor: bloodColors[g] }}></div>
-              <span className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">{g}</span>
+          
+          <div className={`px-5 py-3 rounded-2xl border flex items-center gap-4 ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total National</span>
+              <span className="text-xl font-black text-red-600 tabular-nums">{totalNational.toLocaleString('fr-FR')}</span>
             </div>
-          ))}
+            <Activity size={20} className="text-red-600/30" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center min-h-[450px]">
+          {/* Zone du Pie Chart */}
+          <div className="h-[400px] w-full relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={100}
+                  outerRadius={160}
+                  paddingAngle={5}
+                  dataKey="value"
+                  animationBegin={0}
+                  animationDuration={1500}
+                  stroke="none"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={siteColors[index % siteColors.length]} 
+                      className="hover:opacity-80 transition-opacity cursor-pointer outline-none"
+                    />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            
+            {/* Centre du Donut */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">CNTSCI</p>
+              <p className="text-3xl font-black text-slate-800 dark:text-white leading-none">PSL</p>
+            </div>
+          </div>
+
+          {/* Légende personnalisée et détaillée */}
+          <div className="space-y-4">
+             {pieData.map((item, idx) => {
+               const pct = totalNational > 0 ? ((item.value / totalNational) * 100).toFixed(1) : 0;
+               return (
+                 <div 
+                   key={idx} 
+                   className={`flex items-center justify-between p-4 rounded-2xl border transition-all hover:translate-x-2 ${darkMode ? 'bg-slate-900/40 border-slate-700/50' : 'bg-slate-50 border-slate-100'}`}
+                 >
+                   <div className="flex items-center gap-4">
+                     <div className="w-3 h-3 rounded-full shadow-lg" style={{ backgroundColor: siteColors[idx % siteColors.length] }}></div>
+                     <div>
+                       <p className="text-[11px] font-black uppercase tracking-tight text-slate-700 dark:text-slate-200">{item.fullName}</p>
+                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{item.value.toLocaleString('fr-FR')} unités</p>
+                     </div>
+                   </div>
+                   <div className="text-right">
+                     <span className="text-sm font-black text-red-600 tabular-nums">{pct}%</span>
+                   </div>
+                 </div>
+               );
+             })}
+          </div>
         </div>
       </div>
 
@@ -197,6 +162,11 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
               Données Consolidées par SITE
             </h3>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Analyse tabulaire précise des distributions nationales</p>
+          </div>
+          <div className="no-print">
+             <button className={`p-2 rounded-xl border flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                <Info size={14} /> Guide de lecture
+             </button>
           </div>
         </div>
 
@@ -224,16 +194,8 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
                     {row.site}
                   </td>
                   {BLOOD_GROUPS.map(g => {
-                    const percentage = row.total > 0 ? (row[g] / row.total) * 100 : 0;
                     return (
                       <td key={g} className="relative px-2 py-5 text-center overflow-hidden">
-                        <div 
-                          className="absolute bottom-0 left-0 h-0.5 transition-all duration-1000 ease-out opacity-30" 
-                          style={{ 
-                            width: `${percentage}%`, 
-                            backgroundColor: bloodColors[g] 
-                          }}
-                        />
                         <span className={`relative z-10 text-xs tabular-nums ${row[g] > 0 ? 'font-black text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-600'}`}>
                           {row[g] || 0}
                         </span>
