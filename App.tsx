@@ -129,6 +129,22 @@ const App: React.FC = () => {
     return base;
   }, [activeTab, customData, mockData, selectedSiteName, selectedFacility, selectedDay, selectedMonth, selectedYear]);
 
+  // CALCULS RÉELS DES TOTAUX PAR TYPE
+  const statsTotals = useMemo(() => {
+    const totalDist = filteredData.reduce((acc, row) => acc + row.total, 0);
+    const plasmaDist = filteredData
+      .filter(r => r.productType.toUpperCase().includes('PLASMA'))
+      .reduce((acc, row) => acc + row.total, 0);
+    const plaquettesDist = filteredData
+      .filter(r => r.productType.toUpperCase().includes('PLAQUETTES'))
+      .reduce((acc, row) => acc + row.total, 0);
+    const cgrDist = filteredData
+      .filter(r => r.productType.toUpperCase().includes('CGR'))
+      .reduce((acc, row) => acc + row.total, 0);
+
+    return { totalDist, plasmaDist, plaquettesDist, cgrDist };
+  }, [filteredData]);
+
   const siteSynthesisData = useMemo(() => {
     const sourceData = customData 
       ? customData.filter(row => row.month === selectedMonth && row.year === selectedYear)
@@ -221,8 +237,6 @@ const App: React.FC = () => {
     
     return mockData.annualTrend;
   }, [customData, mockData, selectedSiteName, selectedYear, selectedFacility]);
-
-  const grandTotal = useMemo(() => filteredData.reduce((acc, row) => acc + row.total, 0), [filteredData]);
 
   const parseCSVData = (text: string, source: 'file' | 'link') => {
     try {
@@ -404,12 +418,36 @@ const App: React.FC = () => {
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
-            { label: 'Total Distribution', val: grandTotal, icon: Database, color: 'text-red-600', bg: 'bg-red-600/10' },
-            { label: 'Plasma Thérapeutique', val: customData ? customData.filter(r => r.productType.toUpperCase().includes('PLASMA')).reduce((s, r) => s + r.total, 0) : Math.floor(grandTotal * 0.25), icon: Target, color: 'text-yellow-600', bg: 'bg-yellow-600/10' },
-            { label: 'Concentré de Plaquettes', val: customData ? customData.filter(r => r.productType.toUpperCase().includes('PLAQUETTES')).reduce((s, r) => s + r.total, 0) : Math.floor(grandTotal * 0.15), icon: Package, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
-            { label: 'Sites Actifs', val: AVAILABLE_SITES.length, icon: Globe, color: 'text-blue-600', bg: 'bg-blue-600/10' }
+            { 
+              label: 'Total Distribution', 
+              val: statsTotals.totalDist, 
+              icon: Database, 
+              color: 'text-red-600', 
+              bg: 'bg-red-600/10' 
+            },
+            { 
+              label: 'Total CGR', 
+              val: statsTotals.cgrDist, 
+              icon: Droplets, 
+              color: 'text-red-500', 
+              bg: 'bg-red-500/10' 
+            },
+            { 
+              label: 'Plasma Thérapeutique', 
+              val: statsTotals.plasmaDist, 
+              icon: Target, 
+              color: 'text-yellow-600', 
+              bg: 'bg-yellow-600/10' 
+            },
+            { 
+              label: 'Concentré de Plaquettes', 
+              val: statsTotals.plaquettesDist, 
+              icon: Package, 
+              color: 'text-yellow-500', 
+              bg: 'bg-yellow-500/10' 
+            }
           ].map((s, i) => (
-            <div key={i} className={`p-6 rounded-3xl border transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div key={i} className={`p-6 rounded-3xl border transition-all hover:scale-[1.02] relative group ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
               <div className="flex items-center justify-between mb-4">
                 <div className={`p-3 rounded-2xl ${s.bg} ${s.color}`}><s.icon size={22} /></div>
                 <div className="text-right">
