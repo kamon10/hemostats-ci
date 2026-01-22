@@ -70,7 +70,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<{name: string} | null>(JSON.parse(localStorage.getItem('user') || 'null'));
   
   const [selectedSiteName, setSelectedSiteName] = useState<string>('TOUS LES SITES');
-  const [selectedYear, setSelectedYear] = useState<string>('2025');
+  const [selectedYear, setSelectedYear] = useState<string>('2026');
   const [selectedMonth, setSelectedMonth] = useState<string>('Janvier');
   const [selectedDay, setSelectedDay] = useState<string>('01');
   const [selectedFacility, setSelectedFacility] = useState<string>('ALL');
@@ -337,7 +337,7 @@ const App: React.FC = () => {
 
   const navigationItems = [
     { id: 'synthesis', icon: Layers, label: 'Tableau de Bord Global' },
-    { id: 'site_synthesis', icon: Table, label: 'Synthèse par DEPÔT CNTSCI' },
+    { id: 'site_synthesis', icon: Table, label: 'Synthèse par SITE CNTSCI' },
     { id: 'product_synthesis', icon: Grid, label: 'Synthèse Distribution des Produits Sanguin par Site' },
     { id: 'daily', icon: Clock, label: 'Synthèse Journalière' },
     { id: 'monthly', icon: Calendar, label: 'Synthèse Mensuelle' },
@@ -433,7 +433,7 @@ const App: React.FC = () => {
               {activeTab === 'annual' ? 'ANALYSE ANNUELLE DES PSL' : 
                activeTab === 'daily' ? 'SYNTHÈSE JOURNALIÈRE' : 
                activeTab === 'monthly' ? 'SYNTHÈSE MENSUELLE' : 
-               activeTab === 'site_synthesis' ? 'SYNTHÈSE NATIONALE PAR DEPÔT CNTSCI' : 
+               activeTab === 'site_synthesis' ? 'SYNTHÈSE NATIONALE PAR SITE CNTSCI' : 
                activeTab === 'product_synthesis' ? 'SYNTHESE DISTRIBUTION DES PRODUITS SANGUIN PAR SITE' : 'DISTRIBUTION DES PSL'}
             </h2>
             <div className="flex flex-wrap items-center gap-3">
@@ -497,8 +497,8 @@ const App: React.FC = () => {
               val: statsTotals.plaquettesDist, 
               pct: statsTotals.plaquettesPct,
               icon: Package, 
-              color: 'text-yellow-500', 
-              bg: 'bg-yellow-500/10' 
+              color: 'text-blue-500', 
+              bg: 'bg-blue-500/10' 
             }
           ].map((s, i) => (
             <div key={i} className={`p-6 rounded-3xl border transition-all hover:scale-[1.02] relative group ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
