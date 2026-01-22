@@ -38,7 +38,9 @@ import {
   LogOut,
   User as UserIcon,
   Table,
-  Grid
+  Grid,
+  Menu,
+  X
 } from 'lucide-react';
 import { INITIAL_DATA, BLOOD_GROUPS, AVAILABLE_SITES, GET_DATA_FOR_SITE, MONTHS, PRODUCT_TYPES, DAYS, YEARS } from './constants';
 import DistributionTable from './components/DistributionTable';
@@ -49,6 +51,7 @@ import AnnualCharts from './components/AnnualCharts';
 import SiteSynthesis from './components/SiteSynthesis';
 import DetailedSynthesis from './components/DetailedSynthesis';
 import Login from './components/Login';
+import Logo from './components/Logo';
 import { DistributionData, DistributionRow, BloodGroup, ProductType, MonthlyTrend } from './types';
 
 // LIEN DU FICHIER GOOGLE SHEET INTÉGRÉ DIRECTEMENT
@@ -73,6 +76,7 @@ const App: React.FC = () => {
   const [selectedFacility, setSelectedFacility] = useState<string>('ALL');
   const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'annual' | 'facilities' | 'synthesis' | 'site_synthesis' | 'product_synthesis'>('synthesis');
   const [darkMode, setDarkMode] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [customData, setCustomData] = useState<DistributionRowExtended[] | null>(null);
   const [importStats, setImportStats] = useState<{count: number, date: string, source: 'file' | 'link', error?: string} | null>(null);
   const [sheetUrl] = useState<string>(HARDCODED_SHEET_URL);
@@ -129,7 +133,7 @@ const App: React.FC = () => {
     return base;
   }, [activeTab, customData, mockData, selectedSiteName, selectedFacility, selectedDay, selectedMonth, selectedYear]);
 
-  // CALCULS RÉELS DES TOTAUX PAR TYPE
+  // CALCULS RÉELS DES TOTAUX ET POURCENTAGES
   const statsTotals = useMemo(() => {
     const totalDist = filteredData.reduce((acc, row) => acc + row.total, 0);
     const plasmaDist = filteredData
@@ -142,7 +146,14 @@ const App: React.FC = () => {
       .filter(r => r.productType.toUpperCase().includes('CGR'))
       .reduce((acc, row) => acc + row.total, 0);
 
-    return { totalDist, plasmaDist, plaquettesDist, cgrDist };
+    const calcPct = (val: number) => totalDist > 0 ? Math.round((val / totalDist) * 100) : 0;
+
+    return { 
+      totalDist, 
+      plasmaDist, plasmaPct: calcPct(plasmaDist),
+      plaquettesDist, plaquettesPct: calcPct(plaquettesDist),
+      cgrDist, cgrPct: calcPct(cgrDist)
+    };
   }, [filteredData]);
 
   const siteSynthesisData = useMemo(() => {
@@ -319,15 +330,43 @@ const App: React.FC = () => {
     return ["TOUS LES SITES", ...base];
   }, [availableSitesInImport]);
 
+  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   if (!isAuthenticated) return <Login onLogin={handleLogin} darkMode={darkMode} />;
+
+  const navigationItems = [
+    { id: 'synthesis', icon: Layers, label: 'Tableau de Bord Global' },
+    { id: 'site_synthesis', icon: Table, label: 'Synthèse par DEPÔT CNTSCI' },
+    { id: 'product_synthesis', icon: Grid, label: 'Synthèse Distribution des Produits Sanguin par Site' },
+    { id: 'daily', icon: Clock, label: 'Synthèse Journalière' },
+    { id: 'monthly', icon: Calendar, label: 'Synthèse Mensuelle' },
+    { id: 'annual', icon: CalendarDays, label: 'Synthèse Annuelle' },
+    { id: 'facilities', icon: Hospital, label: 'Structures Rattachées' }
+  ];
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      <aside className={`fixed left-0 top-0 h-full w-64 p-6 hidden lg:flex flex-col border-r transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
-        <div className="flex items-center gap-3 mb-8">
-          <div className="bg-red-600 p-2.5 rounded-2xl shadow-xl shadow-red-600/20"><Droplets className="text-white w-6 h-6" /></div>
-          <h1 className="text-xl font-black tracking-tight uppercase leading-none">HémoStats <span className="text-red-600">CI</span></h1>
+      {/* Overlay mobile */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300"
+          onClick={closeMobileMenu}
+        />
+      )}
+
+      {/* Sidebar Responsive */}
+      <aside className={`fixed left-0 top-0 h-full w-64 p-6 flex flex-col border-r transition-all duration-300 z-50 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'} ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <Logo size="md" />
+            <h1 className="text-xl font-black tracking-tight uppercase leading-none">HémoStats <span className="text-red-600">CI</span></h1>
+          </div>
+          <button onClick={closeMobileMenu} className="lg:hidden p-2 text-slate-400 hover:text-red-600">
+            <X size={24} />
+          </button>
         </div>
+        
         <div className={`mb-8 p-4 rounded-2xl flex items-center gap-3 border ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
           <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500"><UserIcon size={20} /></div>
           <div className="overflow-hidden">
@@ -335,17 +374,14 @@ const App: React.FC = () => {
             <p className="text-xs font-bold truncate uppercase">{user?.name || 'Utilisateur'}</p>
           </div>
         </div>
+        
         <nav className="space-y-1 flex-1 overflow-y-auto">
-          {[
-            { id: 'synthesis', icon: Layers, label: 'Tableau de Bord Global' },
-            { id: 'site_synthesis', icon: Table, label: 'Synthèse par DEPÔT CNTSCI' },
-            { id: 'product_synthesis', icon: Grid, label: 'Synthèse Produits/Sites' },
-            { id: 'daily', icon: Clock, label: 'Synthèse Journalière' },
-            { id: 'monthly', icon: Calendar, label: 'Synthèse Mensuelle' },
-            { id: 'annual', icon: CalendarDays, label: 'Synthèse Annuelle' },
-            { id: 'facilities', icon: Hospital, label: 'Structures Rattachées' }
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all ${activeTab === tab.id ? 'bg-red-600 text-white shadow-xl shadow-red-600/30 font-bold' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+          {navigationItems.map(tab => (
+            <button 
+              key={tab.id} 
+              onClick={() => { setActiveTab(tab.id as any); closeMobileMenu(); }} 
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all ${activeTab === tab.id ? 'bg-red-600 text-white shadow-xl shadow-red-600/30 font-bold' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+            >
               <tab.icon size={18} /> <span className="text-[10px] uppercase tracking-widest text-left leading-tight">{tab.label}</span>
             </button>
           ))}
@@ -353,7 +389,7 @@ const App: React.FC = () => {
           <div className="pt-2 pb-3 px-4"><span className="uppercase text-[10px] font-black text-slate-400 tracking-[0.2em]">Source de données</span></div>
           <div className="space-y-2 px-1">
             <button 
-              onClick={() => fetchSheetData()} 
+              onClick={() => { fetchSheetData(); closeMobileMenu(); }} 
               disabled={isLoadingLink}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${importStats?.source === 'link' ? 'border-blue-500 text-blue-600 bg-blue-50/5' : 'border-slate-200 dark:border-slate-700 text-slate-500'}`}
             >
@@ -370,35 +406,49 @@ const App: React.FC = () => {
             )}
           </div>
         </nav>
-        <div className="mt-auto space-y-2">
+        
+        <div className="mt-auto pt-4 space-y-2">
            <button onClick={() => setDarkMode(!darkMode)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100'}`}>{darkMode ? <Sun size={18} /> : <Moon size={18} />}<span className="text-[10px] font-black uppercase tracking-widest">{darkMode ? 'Mode Clair' : 'Mode Sombre'}</span></button>
            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-500/10 transition-colors"><LogOut size={18} /><span className="text-[10px] font-black uppercase tracking-widest">Déconnexion</span></button>
         </div>
       </aside>
 
-      <main className="lg:ml-64 p-4 lg:p-8 animate-in fade-in duration-700">
+      {/* Main Content Area */}
+      <main className={`transition-all duration-300 ${isMobileMenuOpen ? 'blur-sm lg:blur-none' : ''} lg:ml-64 p-4 lg:p-8 animate-in fade-in duration-700`}>
+        {/* Mobile Header Bar */}
+        <header className="lg:hidden flex items-center justify-between p-4 mb-6 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+          <div className="flex items-center gap-3">
+            <Logo size="sm" />
+            <h1 className="text-sm font-black tracking-tight uppercase">HémoStats <span className="text-red-600">CI</span></h1>
+          </div>
+          <button onClick={toggleMobileMenu} className="p-2 text-slate-500 bg-slate-100 dark:bg-slate-700 rounded-xl">
+            <Menu size={20} />
+          </button>
+        </header>
+
+        {/* Desktop & Mobile Main Header */}
         <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-10">
           <div>
-            <h2 className="text-3xl font-black tracking-tighter uppercase mb-2">
+            <h2 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase mb-2">
               {activeTab === 'annual' ? 'ANALYSE ANNUELLE DES PSL' : 
                activeTab === 'daily' ? 'SYNTHÈSE JOURNALIÈRE' : 
                activeTab === 'monthly' ? 'SYNTHÈSE MENSUELLE' : 
                activeTab === 'site_synthesis' ? 'SYNTHÈSE NATIONALE PAR DEPÔT CNTSCI' : 
-               activeTab === 'product_synthesis' ? 'SYNTHÈSE PRODUITS & SITES' : 'DISTRIBUTION DES PSL'}
+               activeTab === 'product_synthesis' ? 'SYNTHESE DISTRIBUTION DES PRODUITS SANGUIN PAR SITE' : 'DISTRIBUTION DES PSL'}
             </h2>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 bg-red-600/10 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-600/20"><MapPin size={12} /> {['site_synthesis', 'product_synthesis'].includes(activeTab) || selectedSiteName === 'TOUS LES SITES' ? 'NIVEAU NATIONAL' : selectedSiteName}</div>
               <div className="flex items-center gap-2 bg-blue-600/10 text-blue-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-600/20"><Calendar size={12} /> {activeTab !== 'monthly' && activeTab !== 'annual' && !['site_synthesis', 'product_synthesis'].includes(activeTab) && `${selectedDay} `}{selectedMonth} {selectedYear}</div>
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
              {!['site_synthesis', 'product_synthesis'].includes(activeTab) && (
-               <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 flex items-center">
+               <div className="w-full sm:w-auto bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 flex items-center">
                   <div className="px-3 text-red-600" title="SÉLECTION SITE"><Globe size={16} /></div>
-                  <select value={selectedSiteName} onChange={(e) => setSelectedSiteName(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer pr-8 py-2 min-w-[200px]">{allSitesForSelect.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                  <select value={selectedSiteName} onChange={(e) => setSelectedSiteName(e.target.value)} className="w-full bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer pr-8 py-2 min-w-[150px]">{allSitesForSelect.map(s => <option key={s} value={s}>{s}</option>)}</select>
                 </div>
              )}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 flex items-center">
+              <div className="w-full sm:w-auto bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 flex items-center">
                 <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer px-3 py-2 text-blue-600">{YEARS.map(y => <option key={y} value={y}>{y}</option>)}</select>
                 {activeTab !== 'annual' && (
                   <>
@@ -421,6 +471,7 @@ const App: React.FC = () => {
             { 
               label: 'Total Distribution', 
               val: statsTotals.totalDist, 
+              pct: 100,
               icon: Database, 
               color: 'text-red-600', 
               bg: 'bg-red-600/10' 
@@ -428,6 +479,7 @@ const App: React.FC = () => {
             { 
               label: 'Total CGR', 
               val: statsTotals.cgrDist, 
+              pct: statsTotals.cgrPct,
               icon: Droplets, 
               color: 'text-red-500', 
               bg: 'bg-red-500/10' 
@@ -435,6 +487,7 @@ const App: React.FC = () => {
             { 
               label: 'Plasma Thérapeutique', 
               val: statsTotals.plasmaDist, 
+              pct: statsTotals.plasmaPct,
               icon: Target, 
               color: 'text-yellow-600', 
               bg: 'bg-yellow-600/10' 
@@ -442,6 +495,7 @@ const App: React.FC = () => {
             { 
               label: 'Concentré de Plaquettes', 
               val: statsTotals.plaquettesDist, 
+              pct: statsTotals.plaquettesPct,
               icon: Package, 
               color: 'text-yellow-500', 
               bg: 'bg-yellow-500/10' 
@@ -452,7 +506,10 @@ const App: React.FC = () => {
                 <div className={`p-3 rounded-2xl ${s.bg} ${s.color}`}><s.icon size={22} /></div>
                 <div className="text-right">
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{s.label}</p>
-                  <div className="text-3xl font-black tracking-tighter">{s.val}</div>
+                  <div className="text-2xl lg:text-3xl font-black tracking-tighter flex items-baseline justify-end gap-2">
+                    {s.val}
+                    <span className="text-xs font-bold text-slate-400">({s.pct}%)</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -472,7 +529,7 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                <div className="lg:col-span-2 space-y-8">
                  <DataCharts data={filteredData} title={`${activeTab === 'daily' ? 'Journalier' : 'Mensuel'} : ${selectedFacility === 'ALL' ? selectedSiteName : selectedFacility}`} darkMode={darkMode} />
-                 <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+                 <div className={`p-4 lg:p-8 rounded-3xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
                     <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-6 flex items-center gap-2"><FileSpreadsheet size={16} className="text-red-600" /> Détails Distributions ({selectedSiteName})</h3>
                     <DistributionTable data={filteredData} darkMode={darkMode} />
                  </div>
