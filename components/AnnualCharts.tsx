@@ -89,7 +89,7 @@ const AnnualCharts: React.FC<Props> = ({ data, darkMode, siteName }) => {
          {[
            { label: 'CGR (Rouge)', val: stats.breakdown.cgr, color: 'text-red-600', bg: 'bg-red-600/5', barColor: '#ef4444' },
            { label: 'Plasma (Jaune Pur)', val: stats.breakdown.plasma, color: 'text-yellow-600', bg: 'bg-yellow-600/5', barColor: '#eab308' },
-           { label: 'Plaquettes (Jaune Clair)', val: stats.breakdown.plaquettes, color: 'text-yellow-400', bg: 'bg-yellow-400/5', barColor: '#fde047' }
+           { label: 'Plaquettes (Bleu)', val: stats.breakdown.plaquettes, color: 'text-blue-500', bg: 'bg-blue-500/5', barColor: '#3b82f6' }
          ].map((p, i) => (
            <div key={i} className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
              <div className="flex justify-between items-center mb-4">
@@ -125,8 +125,8 @@ const AnnualCharts: React.FC<Props> = ({ data, darkMode, siteName }) => {
                   <stop offset="95%" stopColor="#eab308" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorPlaquettes" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#fde047" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#fde047" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <XAxis dataKey="month" stroke={darkMode ? '#94a3b8' : '#64748b'} fontSize={12} axisLine={false} tickLine={false} />
@@ -144,7 +144,7 @@ const AnnualCharts: React.FC<Props> = ({ data, darkMode, siteName }) => {
               <Legend verticalAlign="top" height={36} wrapperStyle={{ paddingBottom: '20px' }}/>
               <Area type="monotone" name="CGR" dataKey="cgr" stroke="#ef4444" fillOpacity={1} fill="url(#colorCgr)" strokeWidth={4} />
               <Area type="monotone" name="Plasma" dataKey="plasma" stroke="#eab308" fillOpacity={1} fill="url(#colorPlasma)" strokeWidth={4} />
-              <Area type="monotone" name="Plaquettes" dataKey="plaquettes" stroke="#fde047" fillOpacity={1} fill="url(#colorPlaquettes)" strokeWidth={4} />
+              <Area type="monotone" name="Plaquettes" dataKey="plaquettes" stroke="#3b82f6" fillOpacity={1} fill="url(#colorPlaquettes)" strokeWidth={4} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -189,7 +189,7 @@ const AnnualCharts: React.FC<Props> = ({ data, darkMode, siteName }) => {
                   <div className="flex gap-1 mb-1">
                      <div className="w-2 h-2 rounded-full bg-red-500" title="CGR"></div>
                      <div className="w-2 h-2 rounded-full bg-yellow-500" title="Plasma"></div>
-                     <div className="w-2 h-2 rounded-full bg-yellow-300" title="Plaquettes"></div>
+                     <div className="w-2 h-2 rounded-full bg-blue-500" title="Plaquettes"></div>
                   </div>
                   <div className="text-[9px] text-slate-400 uppercase font-black">Code Couleurs PSL</div>
                 </div>
