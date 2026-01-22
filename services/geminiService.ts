@@ -1,33 +1,42 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { DistributionData } from "../types";
+import { DistributionData, BloodGroup } from "../types";
+import { BLOOD_GROUPS } from "../constants";
 
 export const generateInsights = async (data: DistributionData, currentView: string) => {
+  // Initialisation à chaque appel pour garantir l'utilisation de la clé API la plus récente
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+  // Pré-agrégation pour réduire la taille du prompt et éviter de saturer les jetons
+  const siteSummary = data.monthlySite.map(r => ({
+    product: r.productType,
+    total: r.total,
+    dist: BLOOD_GROUPS.filter(g => r.counts[g] > 0).map(g => `${g}:${r.counts[g]}`).join(', ')
+  }));
+
+  const nationalSummary = data.monthlyNational.map(r => ({
+    product: r.productType,
+    total: r.total
+  }));
+
   const prompt = `
-    En tant qu'expert en analyse de données médicales pour HÉMOSTATS CI (Système d'analyse de distribution sanguine de Côte d'Ivoire), analyse les données suivantes pour le site de ${data.metadata.site} en vue de ${currentView}.
+    En tant qu'expert médical pour HÉMOSTATS CI, analyse la distribution de ${data.metadata.site} (${currentView}).
     
-    Données du site: ${JSON.stringify(data.monthlySite)}
-    Données nationales: ${JSON.stringify(data.monthlyNational)}
+    RÉSUMÉ SITE: ${JSON.stringify(siteSummary)}
+    RÉSUMÉ NATIONAL: ${JSON.stringify(nationalSummary)}
     
-    Ta mission est d'identifier:
-    1. Les groupes sanguins en tension (forte demande vs stock habituel).
-    2. Les disparités entre les besoins du site et la moyenne nationale.
-    3. Des recommandations concrètes pour la prochaine campagne de collecte.
+    Identifie :
+    1. Groupes en tension (forte demande/faible stock).
+    2. Disparités vs moyenne nationale.
+    3. Recommandations de collecte.
     
-    Réponds uniquement au format JSON avec la structure suivante :
-    {
-      "insights": [
-        { "title": "...", "content": "...", "type": "info" | "warning" | "success" }
-      ]
-    }
+    Réponds en JSON uniquement.
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
+      contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -40,7 +49,7 @@ export const generateInsights = async (data: DistributionData, currentView: stri
                 properties: {
                   title: { type: Type.STRING },
                   content: { type: Type.STRING },
-                  type: { type: Type.STRING, enum: ["info", "warning", "success"] }
+                  type: { type: Type.STRING } // Simplifié pour éviter les erreurs d'énumération strictes
                 },
                 required: ["title", "content", "type"]
               }
@@ -51,14 +60,23 @@ export const generateInsights = async (data: DistributionData, currentView: stri
       }
     });
 
-    const result = JSON.parse(response.text || '{"insights": []}');
-    return result.insights;
-  } catch (error) {
-    console.error("Gemini Insight generation failed:", error);
+    // Extraction sécurisée du texte
+    const text = response.text;
+    if (!text) throw new Error("Réponse vide de l'IA");
+    
+    const result = JSON.parse(text);
+    return result.insights || [];
+  } catch (error: any) {
+    console.error("Gemini Insight Error:", error);
+    
+    // Message d'erreur plus détaillé pour le débogage
+    let errorMessage = "L'analyse automatique est temporairement indisponible.";
+    if (error.message?.includes("API_KEY")) errorMessage = "Erreur de configuration de la clé API.";
+    
     return [
       {
-        title: "Analyse Indisponible",
-        content: "Impossible de générer des insights pour le moment. Vérifiez votre connexion ou la clé API.",
+        title: "Analyse en pause",
+        content: errorMessage,
         type: "warning"
       }
     ];
