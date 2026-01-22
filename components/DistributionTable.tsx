@@ -104,7 +104,7 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
     const t = type.toUpperCase();
     if (t.includes('CGR')) return 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800';
     if (t.includes('PLASMA')) return 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800';
-    if (t.includes('PLAQUETTES')) return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-100 dark:border-yellow-800';
+    if (t.includes('PLAQUETTES')) return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800';
     return 'text-slate-600 bg-slate-50 dark:bg-slate-900/20 border-slate-100 dark:border-slate-800';
   };
 
