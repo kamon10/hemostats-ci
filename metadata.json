@@ -1,0 +1,5 @@
+{
+  "name": "HémoStats CI - Gestion de Distribution Sanguine",
+  "description": "Une plateforme analytique avancée pour le suivi de la distribution des produits sanguins (CGR, Plaquettes, Plasma) en Côte d'Ivoire. Visualisez les statistiques journalières, mensuelles et nationales avec l'assistance intelligente de Gemini.",
+  "requestFramePermissions": []
+}
