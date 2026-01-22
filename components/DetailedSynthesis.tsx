@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { BLOOD_GROUPS } from '../constants';
 import { BloodGroup } from '../types';
 import { Grid, Search, Filter, Printer, FileText } from 'lucide-react';
+import Logo from './Logo';
 
 interface DetailedRow {
   site: string;
@@ -71,11 +72,11 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
           }
           .print-header {
             display: flex !important;
-            justify-content: justify;
+            justify-content: space-between;
             align-items: center;
             border-bottom: 2px solid #ef4444;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
           }
           table {
             width: 100% !important;
@@ -111,16 +112,17 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
       <div className={`print-container p-8 rounded-3xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
         {/* En-tête visible uniquement à l'impression */}
         <div className="print-header hidden">
-          <div className="flex items-center gap-4">
-            <div className="bg-red-600 p-2 rounded-lg"><FileText className="text-white" size={24} /></div>
+          <div className="flex items-center gap-5">
+            <Logo size="lg" />
             <div>
-              <h1 className="text-xl font-black uppercase">HÉMOSTATS CI</h1>
-              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Document de Synthèse Officiel - CNTSCI</p>
+              <h1 className="text-2xl font-black uppercase tracking-tight">HÉMOSTATS CI</h1>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-red-600 pl-3">Document de Synthèse Officiel - CNTSCI</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">Plateforme Nationale de Suivi de la Distribution des PSL</p>
             </div>
           </div>
           <div className="text-right flex-1">
-            <p className="text-[10px] font-black uppercase">Généré le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR')}</p>
-            <p className="text-[8px] text-slate-400 font-bold uppercase">Source : Plateforme Analytique Nationale</p>
+            <p className="text-[10px] font-black uppercase mb-1">Période : {month} {year}</p>
+            <p className="text-[9px] font-bold uppercase text-slate-600">Généré le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR')}</p>
           </div>
         </div>
 
@@ -243,7 +245,7 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
               <div className="w-48 h-20 border border-slate-200 rounded-lg"></div>
             </div>
             <div className="text-right">
-              <p className="text-[8px] font-bold text-slate-400 uppercase italic">Hémostats CI - Page 1 sur 1</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase italic leading-loose">Hémostats CI - Page 1 sur 1<br/>Document certifié par le CNTSCI</p>
             </div>
           </div>
         </div>
