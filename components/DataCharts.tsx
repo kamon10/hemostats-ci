@@ -46,7 +46,7 @@ const DataCharts: React.FC<Props> = ({ data, title, darkMode }) => {
       } else if (type.includes('PLASMA')) {
         color = '#eab308'; // Jaune Pur (Plasma)
       } else if (type.includes('PLAQUETTES')) {
-        color = '#fde047'; // Jaune Clair (Plaquettes)
+        color = '#3b82f6'; // Bleu (Plaquettes)
       } else if (type.includes('CGR')) {
         color = '#dc2626'; // Rouge Foncé pour les autres CGR
       }
