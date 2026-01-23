@@ -180,7 +180,7 @@ const DataCharts: React.FC<Props> = ({ data, title, darkMode }) => {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Rendu</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TOTAL RENDU POCHES</p>
             <p className="text-xl font-black text-purple-600">{totalRendu.toLocaleString()}</p>
           </div>
         </div>
