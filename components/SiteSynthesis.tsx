@@ -52,12 +52,12 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
           </div>
         </div>
 
-        {/* Total Rendu KPI */}
+        {/* TOTAL RENDU POCHES KPI */}
         <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
           <div className="relative z-10">
             <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
               <RotateCcw size={12} className="text-purple-600" />
-              Total Rendu
+              TOTAL RENDU POCHES
             </p>
             <div className="text-3xl font-black tracking-tighter text-purple-600 mb-1 tabular-nums">
               {stats.totalRendu.toLocaleString('fr-FR')}
@@ -103,7 +103,7 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
               <FileSpreadsheet size={16} className="text-red-600" />
               Récapitulatif National par Site ({month} {year})
             </h3>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Données consolidées avec Nombre de Rendu</p>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Données consolidées avec TOTAL RENDU POCHES</p>
           </div>
           <div className="no-print">
              <div className={`px-4 py-2 rounded-xl border flex items-center gap-3 ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
