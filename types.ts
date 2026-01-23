@@ -14,6 +14,7 @@ export interface DistributionRow {
   facility?: string;
   counts: Record<BloodGroup, number>;
   total: number;
+  Bd_rendu: number;
 }
 
 export interface MonthlyTrend {
