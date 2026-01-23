@@ -2,13 +2,14 @@
 import React, { useState, useMemo } from 'react';
 import { BLOOD_GROUPS } from '../constants';
 import { BloodGroup } from '../types';
-import { Grid, Search, Filter, Printer, FileText } from 'lucide-react';
+import { Grid, Search, Filter, Printer, FileText, RotateCcw, TrendingUp, AlertCircle, Info } from 'lucide-react';
 import Logo from './Logo';
 
 interface DetailedRow {
   site: string;
   productType: string;
   total: number;
+  Bd_rendu: number;
   [key: string]: any;
 }
 
@@ -17,9 +18,10 @@ interface Props {
   darkMode: boolean;
   month: string;
   year: string;
+  focusRendu?: boolean;
 }
 
-const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
+const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year, focusRendu = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredData = useMemo(() => {
@@ -38,6 +40,21 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
     });
     return groups;
   }, [filteredData]);
+
+  const summaryStats = useMemo(() => {
+    const totalDist = data.reduce((sum, r) => sum + r.total, 0);
+    const totalRendu = data.reduce((sum, r) => sum + r.Bd_rendu, 0);
+    const ratio = totalDist > 0 ? (totalRendu / totalDist) * 100 : 0;
+    
+    // Top Site Rendu
+    const siteAggregation: Record<string, number> = {};
+    data.forEach(r => {
+      siteAggregation[r.site] = (siteAggregation[r.site] || 0) + r.Bd_rendu;
+    });
+    const topSite = Object.entries(siteAggregation).sort((a, b) => b[1] - a[1])[0] || ["-", 0];
+
+    return { totalDist, totalRendu, ratio, topSite };
+  }, [data]);
 
   const handlePrint = () => {
     window.print();
@@ -109,6 +126,52 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
         }
       `}</style>
 
+      {/* Rendu Focus Header Dashboard */}
+      {focusRendu && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
+          <div className={`p-6 rounded-[32px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-purple-500/10 rounded-2xl text-purple-600">
+                <RotateCcw size={24} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Total Retours National</p>
+                <p className="text-2xl font-black text-purple-600 tabular-nums">{summaryStats.totalRendu.toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="w-full h-1 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden">
+               <div className="h-full bg-purple-600" style={{ width: `${summaryStats.ratio}%` }}></div>
+            </div>
+          </div>
+
+          <div className={`p-6 rounded-[32px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-amber-500/10 rounded-2xl text-amber-500">
+                <TrendingUp size={24} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Taux de Rendu Moyen</p>
+                <p className="text-2xl font-black text-amber-600 tabular-nums">{summaryStats.ratio.toFixed(2)}%</p>
+              </div>
+            </div>
+            <p className="text-[9px] font-bold text-slate-500 uppercase">Basé sur {summaryStats.totalDist.toLocaleString()} distributions</p>
+          </div>
+
+          <div className={`p-6 rounded-[32px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-500">
+                <AlertCircle size={24} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Top Site (Retours)</p>
+                <p className="text-xl font-black text-blue-600 truncate max-w-[180px]">{summaryStats.topSite[0]}</p>
+              </div>
+            </div>
+            <p className="text-[9px] font-bold text-slate-500 uppercase">{summaryStats.topSite[1]} unités retournées</p>
+          </div>
+        </div>
+      )}
+
       <div className={`print-container p-8 rounded-3xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
         {/* En-tête visible uniquement à l'impression */}
         <div className="print-header hidden">
@@ -129,8 +192,8 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 no-print">
           <div>
             <h3 className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 mb-1">
-              <Grid size={16} className="text-red-600" />
-              Synthèse Détaillée : GROUPE SANGUIN, TYPE PRODUIT & DEPÔT CNTSCI
+              {focusRendu ? <RotateCcw size={16} className="text-purple-600" /> : <Grid size={16} className="text-red-600" />}
+              {focusRendu ? "Synthèse : RENDU, TYPE PRODUIT, SITE" : "Synthèse : GS, TYPE PRODUIT, SITE & RENDU"}
             </h3>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Période : {month} {year}</p>
           </div>
@@ -166,15 +229,16 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
                 {BLOOD_GROUPS.map(g => (
                   <th key={g} className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-center">{g}</th>
                 ))}
+                <th className={`px-4 py-4 text-[10px] font-black uppercase tracking-widest text-center ${focusRendu ? 'bg-purple-600 text-white' : 'text-purple-600'}`}>Rendu</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right sticky right-0 z-20 bg-inherit border-l border-slate-200 dark:border-slate-700">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-              {Object.entries(groupedData).map(([site, rows]) => (
+              {Object.entries(groupedData).map(([site, rows]: [string, DetailedRow[]]) => (
                 <React.Fragment key={site}>
                   {/* Site Header Row */}
                   <tr className={`${darkMode ? 'bg-slate-800/80' : 'bg-slate-50/50'}`}>
-                    <td colSpan={BLOOD_GROUPS.length + 3} className="px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-red-600 border-b border-red-500/10">
+                    <td colSpan={BLOOD_GROUPS.length + 4} className={`px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] border-b ${focusRendu ? 'text-purple-600 border-purple-500/10' : 'text-red-600 border-red-500/10'}`}>
                       Site : {site}
                     </td>
                   </tr>
@@ -187,11 +251,14 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
                         {row.productType}
                       </td>
                       {BLOOD_GROUPS.map(g => (
-                        <td key={g} className={`px-4 py-4 text-xs text-center tabular-nums transition-colors ${row[g] > 0 ? 'font-black text-red-500' : 'text-slate-300 dark:text-slate-600'}`}>
+                        <td key={g} className={`px-4 py-4 text-xs text-center tabular-nums transition-colors ${row[g] > 0 ? (focusRendu ? 'text-purple-500' : 'text-red-500') : 'text-slate-300 dark:text-slate-600'}`}>
                           {row[g] || 0}
                         </td>
                       ))}
-                      <td className="px-6 py-4 text-sm font-black text-right tabular-nums bg-red-600/5 text-red-600 sticky right-0 z-10 border-l border-slate-200 dark:border-slate-700">
+                      <td className={`px-4 py-4 text-xs text-center tabular-nums font-black ${focusRendu ? 'bg-purple-600/5 text-purple-700' : 'text-purple-600'}`}>
+                        {row.Bd_rendu || 0}
+                      </td>
+                      <td className={`px-6 py-4 text-sm font-black text-right tabular-nums bg-red-600/5 text-red-600 sticky right-0 z-10 border-l border-slate-200 dark:border-slate-700`}>
                         {row.total}
                       </td>
                     </tr>
@@ -204,6 +271,9 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
                         {rows.reduce((sum, r) => sum + (r[g] || 0), 0)}
                       </td>
                     ))}
+                    <td className={`px-4 py-3 text-[10px] font-black text-center ${focusRendu ? 'bg-purple-600/10 text-purple-700' : 'text-purple-400'}`}>
+                      {rows.reduce((sum, r) => sum + (r.Bd_rendu || 0), 0)}
+                    </td>
                     <td className="px-6 py-3 text-xs font-black text-right text-slate-500 bg-slate-100/50 dark:bg-slate-700/50 sticky right-0 z-10">
                       {rows.reduce((sum, r) => sum + r.total, 0)}
                     </td>
@@ -213,7 +283,7 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
               
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={BLOOD_GROUPS.length + 3} className="px-6 py-20 text-center text-xs italic text-slate-400 uppercase tracking-widest">
+                  <td colSpan={BLOOD_GROUPS.length + 4} className="px-6 py-20 text-center text-xs italic text-slate-400 uppercase tracking-widest">
                     Aucune donnée disponible pour les filtres sélectionnés.
                   </td>
                 </tr>
@@ -228,6 +298,9 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => 
                       {data.reduce((sum, row) => sum + (row[g] || 0), 0)}
                     </td>
                   ))}
+                  <td className={`px-4 py-5 text-sm text-center tabular-nums ${focusRendu ? 'bg-purple-600 text-white' : 'text-purple-400'}`}>
+                    {data.reduce((sum, row) => sum + (row.Bd_rendu || 0), 0)}
+                  </td>
                   <td className="px-6 py-5 text-lg text-right tabular-nums bg-red-600 sticky right-0 z-30">
                     {data.reduce((sum, row) => sum + row.total, 0)}
                   </td>
