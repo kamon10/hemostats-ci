@@ -135,7 +135,7 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year, focus
                 <RotateCcw size={24} />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">Total Retours National</p>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">TOTAL RENDU POCHES National</p>
                 <p className="text-2xl font-black text-purple-600 tabular-nums">{summaryStats.totalRendu.toLocaleString()}</p>
               </div>
             </div>
@@ -193,7 +193,7 @@ const DetailedSynthesis: React.FC<Props> = ({ data, darkMode, month, year, focus
           <div>
             <h3 className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 mb-1">
               {focusRendu ? <RotateCcw size={16} className="text-purple-600" /> : <Grid size={16} className="text-red-600" />}
-              {focusRendu ? "Synthèse : RENDU, TYPE PRODUIT, SITE" : "Synthèse : GS, TYPE PRODUIT, SITE & RENDU"}
+              {focusRendu ? "Synthèse : TOTAL RENDU POCHES, TYPE PRODUIT, SITE" : "Synthèse : GS, TYPE PRODUIT, SITE & RENDU"}
             </h3>
             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Période : {month} {year}</p>
           </div>
