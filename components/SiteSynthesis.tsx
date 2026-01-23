@@ -8,7 +8,8 @@ import {
   TrendingUp, 
   Award, 
   BarChart2,
-  Info
+  Info,
+  RotateCcw
 } from 'lucide-react';
 
 interface Props {
@@ -23,64 +24,73 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
   
   const stats = useMemo(() => {
     const total = sortedData.reduce((sum, item) => sum + item.total, 0);
+    const totalRendu = sortedData.reduce((sum, item) => sum + (item.Bd_rendu || 0), 0);
     const leader = sortedData[0] || { site: '-', total: 0 };
     const average = sortedData.length > 0 ? Math.round(total / sortedData.length) : 0;
     
-    return { total, leader, average };
+    return { total, totalRendu, leader, average };
   }, [sortedData]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
       {/* Section de Statistiques Simples (KPIs) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Total National */}
-        <div className={`p-8 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
+        <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
           <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
             <Activity size={80} />
           </div>
           <div className="relative z-10">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-              <TrendingUp size={14} className="text-red-600" />
-              Volume National Global
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+              <TrendingUp size={12} className="text-red-600" />
+              Volume Global
             </p>
-            <div className="text-4xl font-black tracking-tighter text-red-600 mb-2 tabular-nums">
+            <div className="text-3xl font-black tracking-tighter text-red-600 mb-1 tabular-nums">
               {stats.total.toLocaleString('fr-FR')}
             </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Unités distribuées en {month}</p>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Distribuées en {month}</p>
+          </div>
+        </div>
+
+        {/* Total Rendu KPI */}
+        <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
+          <div className="relative z-10">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+              <RotateCcw size={12} className="text-purple-600" />
+              Total Rendu
+            </p>
+            <div className="text-3xl font-black tracking-tighter text-purple-600 mb-1 tabular-nums">
+              {stats.totalRendu.toLocaleString('fr-FR')}
+            </div>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Retours consolidés</p>
           </div>
         </div>
 
         {/* Site Leader */}
-        <div className={`p-8 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
-          <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-            <Award size={80} />
-          </div>
+        <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
           <div className="relative z-10">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-              <Award size={14} className="text-amber-500" />
-              Site Principal (Top 1)
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+              <Award size={12} className="text-amber-500" />
+              Top Site
             </p>
-            <div className="text-2xl font-black tracking-tight text-slate-800 dark:text-white mb-2 uppercase truncate" title={stats.leader.site}>
+            <div className="text-xl font-black tracking-tight text-slate-800 dark:text-white mb-1 uppercase truncate" title={stats.leader.site}>
               {stats.leader.site.replace('CRTS ', '').replace('SITE ', '')}
             </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Performance : {stats.leader.total.toLocaleString('fr-FR')} unités</p>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{stats.leader.total.toLocaleString('fr-FR')} unités</p>
           </div>
         </div>
 
         {/* Moyenne par Centre */}
-        <div className={`p-8 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
-          <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-            <BarChart2 size={80} />
-          </div>
+        <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
           <div className="relative z-10">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-              <BarChart2 size={14} className="text-blue-500" />
-              Moyenne par Centre
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+              <BarChart2 size={12} className="text-blue-500" />
+              Moyenne/Site
             </p>
-            <div className="text-3xl font-black tracking-tighter text-slate-800 dark:text-white mb-2 tabular-nums">
+            <div className="text-3xl font-black tracking-tighter text-slate-800 dark:text-white mb-1 tabular-nums">
               {stats.average.toLocaleString('fr-FR')}
             </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Basé sur {data.length} sites actifs</p>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Sur {data.length} sites</p>
           </div>
         </div>
       </div>
@@ -93,18 +103,18 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
               <FileSpreadsheet size={16} className="text-red-600" />
               Récapitulatif National par Site ({month} {year})
             </h3>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Données consolidées de distribution des PSL</p>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Données consolidées avec Nombre de Rendu</p>
           </div>
           <div className="no-print">
              <div className={`px-4 py-2 rounded-xl border flex items-center gap-3 ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
                 <Info size={14} className="text-blue-500" />
-                <span className="text-[9px] font-black uppercase tracking-widest">Lecture directe des unités</span>
+                <span className="text-[9px] font-black uppercase tracking-widest">Suivi des distributions et retours</span>
              </div>
           </div>
         </div>
 
         <div className="overflow-x-auto rounded-3xl border border-slate-100 dark:border-slate-700 shadow-inner">
-          <table className="w-full text-left border-collapse table-fixed min-w-[1000px]">
+          <table className="w-full text-left border-collapse table-fixed min-w-[1100px]">
             <thead>
               <tr className={`${darkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-50/80 text-slate-600'}`}>
                 <th className="w-16 px-4 py-5 text-[9px] font-black uppercase tracking-widest text-center sticky left-0 z-20 bg-inherit border-r border-slate-200/20"><Hash size={12} className="mx-auto" /></th>
@@ -112,6 +122,7 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
                 {BLOOD_GROUPS.map(g => (
                   <th key={g} className="px-4 py-5 text-[10px] font-black uppercase tracking-widest text-center">{g}</th>
                 ))}
+                <th className="w-24 px-4 py-5 text-[10px] font-black uppercase tracking-widest text-center text-purple-600">RENDU</th>
                 <th className="w-32 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-right bg-red-600/5 text-red-600">TOTAL UNITS</th>
               </tr>
             </thead>
@@ -133,6 +144,11 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
                       </span>
                     </td>
                   ))}
+                  <td className="px-2 py-5 text-center">
+                    <span className={`text-xs tabular-nums font-bold text-purple-600`}>
+                      {row.Bd_rendu || 0}
+                    </span>
+                  </td>
                   <td className="px-6 py-5 text-sm font-black text-right tabular-nums bg-red-600/5 text-red-600 border-l border-red-100/10">
                     {row.total.toLocaleString('fr-FR')}
                   </td>
@@ -148,6 +164,9 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
                       {data.reduce((sum, row) => sum + (row[g] || 0), 0).toLocaleString('fr-FR')}
                     </td>
                   ))}
+                  <td className="px-2 py-6 text-sm text-center tabular-nums text-purple-400">
+                    {stats.totalRendu.toLocaleString('fr-FR')}
+                  </td>
                   <td className="px-6 py-6 text-lg text-right tabular-nums bg-red-600">
                     {stats.total.toLocaleString('fr-FR')}
                   </td>
