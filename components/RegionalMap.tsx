@@ -1,10 +1,18 @@
+
 import React, { useState, useMemo } from 'react';
 import { AVAILABLE_SITES } from '../constants';
-// Added missing Globe icon and removed unused Droplets from imports
-import { MapPin, Info, TrendingUp, Target, Globe } from 'lucide-react';
+import { MapPin, Info, TrendingUp, Target, Globe, RotateCcw } from 'lucide-react';
+
+// Added interface to fix type 'unknown' errors when data is inferred loosely
+interface SiteMapData {
+  site: string;
+  total: number;
+  Bd_rendu?: number;
+  [key: string]: any;
+}
 
 interface Props {
-  data: any[];
+  data: SiteMapData[];
   darkMode: boolean;
   onSiteSelect: (name: string) => void;
 }
@@ -12,24 +20,23 @@ interface Props {
 const RegionalMap: React.FC<Props> = ({ data, darkMode, onSiteSelect }) => {
   const [hoveredSite, setHoveredSite] = useState<string | null>(null);
 
-  // Normalisation des données pour la coloration thermique
-  const siteTotals = useMemo(() => {
-    const map = new Map<string, number>();
-    data.forEach(d => map.set(d.site, d.total));
+  // Normalisation des données pour la coloration thermique et calcul des rendus
+  // Fixed: explicit typing of 'd' to ensure the compiler recognizes 'site', 'total', and 'Bd_rendu'
+  const siteStats = useMemo(() => {
+    const map = new Map<string, { total: number, rendu: number }>();
+    data.forEach((d: SiteMapData) => map.set(d.site, { total: d.total, rendu: d.Bd_rendu || 0 }));
     return map;
   }, [data]);
 
-  const maxTotal = useMemo(() => Math.max(...Array.from(siteTotals.values()), 100), [siteTotals]);
+  const maxTotal = useMemo(() => {
+    // Fix: Explicitly type the map parameter 'v' to resolve the 'unknown' type error on property 'total'
+    const totals = Array.from(siteStats.values()).map((v: { total: number }) => v.total);
+    return Math.max(...(totals as number[]), 100);
+  }, [siteStats]);
 
   const getIntensity = (siteName: string) => {
-    const total = siteTotals.get(siteName) || 0;
-    return Math.min(1, total / maxTotal);
-  };
-
-  const getSiteColor = (siteName: string) => {
-    const intensity = getIntensity(siteName);
-    if (intensity === 0) return darkMode ? '#1e293b' : '#f1f5f9';
-    return `rgba(239, 68, 68, ${0.2 + intensity * 0.8})`;
+    const stats = siteStats.get(siteName);
+    return stats ? Math.min(1, stats.total / maxTotal) : 0;
   };
 
   return (
@@ -46,7 +53,6 @@ const RegionalMap: React.FC<Props> = ({ data, darkMode, onSiteSelect }) => {
 
         {/* SVG de la Côte d'Ivoire (Simplifié) */}
         <svg viewBox="0 0 100 100" className="w-full max-w-[500px] drop-shadow-2xl">
-          {/* Forme simplifiée de la Côte d'Ivoire */}
           <path 
             d="M20,10 L80,10 L95,40 L90,70 L80,95 L20,95 L10,70 L5,40 Z" 
             fill={darkMode ? '#0f172a' : '#f8fafc'} 
@@ -54,10 +60,9 @@ const RegionalMap: React.FC<Props> = ({ data, darkMode, onSiteSelect }) => {
             strokeWidth="0.5"
           />
           
-          {/* Sites / Points */}
           {AVAILABLE_SITES.map(site => {
             const intensity = getIntensity(site.name);
-            const total = siteTotals.get(site.name) || 0;
+            const stats = siteStats.get(site.name);
             const isHovered = hoveredSite === site.name;
 
             return (
@@ -68,21 +73,18 @@ const RegionalMap: React.FC<Props> = ({ data, darkMode, onSiteSelect }) => {
                 onMouseLeave={() => setHoveredSite(null)}
                 onClick={() => onSiteSelect(site.name)}
               >
-                {/* Aura de pulsation si haute intensité */}
                 {intensity > 0.6 && (
                   <circle cx={site.coords.x} cy={site.coords.y} r="3" fill="#ef4444" className="animate-ping opacity-20" />
                 )}
                 
-                {/* Le Point */}
                 <circle 
                   cx={site.coords.x} 
                   cy={site.coords.y} 
                   r={isHovered ? 2.5 : 1.8} 
-                  fill={total > 0 ? '#ef4444' : (darkMode ? '#334155' : '#cbd5e1')} 
+                  fill={stats && stats.total > 0 ? '#ef4444' : (darkMode ? '#334155' : '#cbd5e1')} 
                   className="transition-all duration-300"
                 />
                 
-                {/* Libellé Ville */}
                 <text 
                   x={site.coords.x} 
                   y={site.coords.y - 4} 
@@ -91,14 +93,11 @@ const RegionalMap: React.FC<Props> = ({ data, darkMode, onSiteSelect }) => {
                 >
                   {site.region}
                 </text>
-
-                {/* Tooltip intégré au SVG (optionnel, mais on va utiliser un div HTML pour plus de flexibilité) */}
               </g>
             );
           })}
         </svg>
 
-        {/* Legend */}
         <div className="absolute bottom-8 right-8 flex items-center gap-4 bg-slate-900/5 dark:bg-slate-50/5 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
           <div className="flex flex-col gap-1">
              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Intensité Distribution</span>
@@ -127,11 +126,11 @@ const RegionalMap: React.FC<Props> = ({ data, darkMode, onSiteSelect }) => {
               <div className="grid grid-cols-2 gap-3">
                 <div className={`p-4 rounded-2xl ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Volume Mensuel</p>
-                  <p className="text-xl font-black text-red-500">{siteTotals.get(hoveredSite) || 0}</p>
+                  <p className="text-xl font-black text-red-500">{siteStats.get(hoveredSite)?.total || 0}</p>
                 </div>
                 <div className={`p-4 rounded-2xl ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Région Sanitaire</p>
-                  <p className="text-xs font-black uppercase">{AVAILABLE_SITES.find(s => s.name === hoveredSite)?.region || '-'}</p>
+                  <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-1">Rendus (Bd_rendu)</p>
+                  <p className="text-xl font-black text-purple-600">{siteStats.get(hoveredSite)?.rendu || 0}</p>
                 </div>
               </div>
 
@@ -154,7 +153,6 @@ const RegionalMap: React.FC<Props> = ({ data, darkMode, onSiteSelect }) => {
           )}
         </div>
 
-        {/* Mini Stats Grid */}
         <div className={`p-8 rounded-[40px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
           <h4 className="text-xs font-black uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
              <Target size={16} className="text-indigo-600" />
