@@ -14,7 +14,7 @@ import {
   Sun,
   TrendingUp,
   MapPin,
-  Calendar,
+  Calendar, 
   Clock,
   Upload,
   RefreshCw,
@@ -42,7 +42,8 @@ import {
   Menu,
   X,
   BrainCircuit,
-  Sparkles
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import { INITIAL_DATA, BLOOD_GROUPS, AVAILABLE_SITES, GET_DATA_FOR_SITE, MONTHS, PRODUCT_TYPES, DAYS, YEARS } from './constants';
 import DistributionTable from './components/DistributionTable';
@@ -76,7 +77,7 @@ const App: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>('Janvier');
   const [selectedDay, setSelectedDay] = useState<string>('01');
   const [selectedFacility, setSelectedFacility] = useState<string>('ALL');
-  const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'annual' | 'facilities' | 'synthesis' | 'site_synthesis' | 'product_synthesis' | 'ai_analysis'>('synthesis');
+  const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'annual' | 'facilities' | 'synthesis' | 'site_synthesis' | 'product_synthesis' | 'rendu_synthesis' | 'ai_analysis'>('synthesis');
   const [darkMode, setDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [customData, setCustomData] = useState<DistributionRowExtended[] | null>(null);
@@ -157,20 +158,20 @@ const App: React.FC = () => {
       if (activeTab === 'daily') {
         const targetDate = `${selectedDay.padStart(2, '0')}/${(MONTHS.indexOf(selectedMonth) + 1).toString().padStart(2, '0')}/${selectedYear}`;
         data = data.filter(row => row.date === targetDate);
-      } else if (['monthly', 'synthesis', 'facilities', 'site_synthesis', 'product_synthesis', 'ai_analysis'].includes(activeTab)) {
+      } else if (['monthly', 'synthesis', 'facilities', 'site_synthesis', 'product_synthesis', 'rendu_synthesis', 'ai_analysis'].includes(activeTab)) {
         data = data.filter(row => row.month === selectedMonth && row.year === selectedYear);
       } else if (activeTab === 'annual') {
         data = data.filter(row => row.year === selectedYear);
       }
       
-      if (selectedFacility !== 'ALL' && !['site_synthesis', 'product_synthesis'].includes(activeTab)) {
+      if (selectedFacility !== 'ALL' && !['site_synthesis', 'product_synthesis', 'rendu_synthesis'].includes(activeTab)) {
         data = data.filter(row => row.facility === selectedFacility);
       }
       return data;
     }
     
     let base = activeTab === 'daily' ? mockData.dailySite : mockData.monthlySite;
-    if (selectedFacility !== 'ALL' && !['site_synthesis', 'product_synthesis'].includes(activeTab)) {
+    if (selectedFacility !== 'ALL' && !['site_synthesis', 'product_synthesis', 'rendu_synthesis'].includes(activeTab)) {
       base = base.filter(row => row.facility === selectedFacility);
     }
     return base;
@@ -179,6 +180,7 @@ const App: React.FC = () => {
   // CALCULS RÉELS DES TOTAUX ET POURCENTAGES
   const statsTotals = useMemo(() => {
     const totalDist = filteredData.reduce((acc, row) => acc + row.total, 0);
+    const totalRendu = filteredData.reduce((acc, row) => acc + (row.Bd_rendu || 0), 0);
     const plasmaDist = filteredData
       .filter(r => r.productType.toUpperCase().includes('PLASMA'))
       .reduce((acc, row) => acc + row.total, 0);
@@ -193,6 +195,7 @@ const App: React.FC = () => {
 
     return { 
       totalDist, 
+      totalRendu,
       plasmaDist, plasmaPct: calcPct(plasmaDist),
       plaquettesDist, plaquettesPct: calcPct(plaquettesDist),
       cgrDist, cgrPct: calcPct(cgrDist)
@@ -207,12 +210,13 @@ const App: React.FC = () => {
           return siteData.monthlySite.map(r => ({ ...r, site: site.name } as DistributionRowExtended));
         }).flat();
 
-    const aggregation: Record<string, Record<BloodGroup, number> & { total: number }> = {};
+    const aggregation: Record<string, Record<BloodGroup, number> & { total: number, Bd_rendu: number }> = {};
     
     sourceData.forEach(row => {
       if (!aggregation[row.site]) {
         aggregation[row.site] = {
           total: 0,
+          Bd_rendu: 0,
           ...BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: 0 }), {} as Record<BloodGroup, number>)
         };
       }
@@ -220,6 +224,7 @@ const App: React.FC = () => {
         aggregation[row.site][g] += row.counts[g] || 0;
       });
       aggregation[row.site].total += row.total;
+      aggregation[row.site].Bd_rendu += (row.Bd_rendu || 0);
     });
 
     return Object.entries(aggregation).map(([site, counts]) => ({ site, ...counts }));
@@ -230,18 +235,20 @@ const App: React.FC = () => {
       ? customData.filter(row => row.month === selectedMonth && row.year === selectedYear)
       : mockData.monthlySite.map(r => ({ ...r, site: selectedSiteName === 'TOUS LES SITES' ? (r as any).site : selectedSiteName } as DistributionRowExtended));
 
-    const aggregation: Record<string, Record<string, Record<BloodGroup, number> & { total: number }>> = {};
+    const aggregation: Record<string, Record<string, Record<BloodGroup, number> & { total: number, Bd_rendu: number }>> = {};
     sourceData.forEach(row => {
       const s = row.site || selectedSiteName;
       if (!aggregation[s]) aggregation[s] = {};
       if (!aggregation[s][row.productType]) {
         aggregation[s][row.productType] = {
           total: 0,
+          Bd_rendu: 0,
           ...BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: 0 }), {} as Record<BloodGroup, number>)
         };
       }
       BLOOD_GROUPS.forEach(g => aggregation[s][row.productType][g] += row.counts[g] || 0);
       aggregation[s][row.productType].total += row.total;
+      aggregation[s][row.productType].Bd_rendu += (row.Bd_rendu || 0);
     });
 
     const results: any[] = [];
@@ -301,13 +308,18 @@ const App: React.FC = () => {
       const headers = rows[0].map(h => h.toUpperCase().trim());
       const getIdx = (name: string) => headers.indexOf(name);
       const idxNombre = getIdx('NOMBRE'), idxGroupe = getIdx('SA_GROUPE'), idxEtab = getIdx('FS_NOM'), idxProduit = getIdx('NA_LIBELLE'), idxSite = getIdx('SI_NOM COMPLET'), idxDate = headers.findIndex(h => h.includes('DATE') || h.includes('DT_DISTRIBUTION'));
+      const idxRendu = headers.findIndex(h => h.includes('RENDU') || h.includes('BD_RENDU'));
+      
       if (idxNombre === -1 || idxGroupe === -1) throw new Error("Colonnes 'NOMBRE' ou 'SA_GROUPE' manquantes.");
       const aggregationMap: Map<string, DistributionRowExtended> = new Map();
       const sitesSet = new Set<string>();
       rows.slice(1).forEach(cols => {
         if (cols.length <= Math.max(idxNombre, idxGroupe)) return;
         const val = Math.max(0, Math.floor(parseFloat(cols[idxNombre].replace(/\s/g, "").replace(",", "."))) || 0);
-        if (val === 0) return;
+        const renduVal = idxRendu !== -1 && cols[idxRendu] ? Math.max(0, Math.floor(parseFloat(cols[idxRendu].replace(/\s/g, "").replace(",", ".")))) : 0;
+        
+        if (val === 0 && renduVal === 0) return;
+        
         const site = idxSite !== -1 ? cols[idxSite] : "SITE INCONNU";
         const facility = idxEtab !== -1 ? cols[idxEtab] : "NON SPECIFIÉ";
         const product = idxProduit !== -1 ? cols[idxProduit] : "PRODUIT SANGUIN";
@@ -324,12 +336,13 @@ const App: React.FC = () => {
         }
         const key = `${site}|${facility}|${product}|${rowDate}`;
         if (!aggregationMap.has(key)) {
-          aggregationMap.set(key, { site, facility, productType: product, date: rowDate, month: rowMonth, year: rowYear, counts: BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: 0 }), {} as Record<BloodGroup, number>), total: 0 });
+          aggregationMap.set(key, { site, facility, productType: product, date: rowDate, month: rowMonth, year: rowYear, counts: BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: 0 }), {} as Record<BloodGroup, number>), total: 0, Bd_rendu: 0 });
         }
         const entry = aggregationMap.get(key)!;
         const group = BLOOD_GROUPS.find(bg => rawGroup === bg.toUpperCase() || rawGroup.includes(bg.toUpperCase()));
         if (group) entry.counts[group] += val;
         entry.total += val;
+        entry.Bd_rendu += renduVal;
       });
       const parsed = Array.from(aggregationMap.values());
       if (parsed.length > 0) {
@@ -381,6 +394,7 @@ const App: React.FC = () => {
   const navigationItems = [
     { id: 'synthesis', icon: Layers, label: 'Tableau de Bord Global' },
     { id: 'ai_analysis', icon: BrainCircuit, label: 'Analyse IA Gemini' },
+    { id: 'rendu_synthesis', icon: RotateCcw, label: 'Synthèse : RENDU, TYPE PRODUIT, SITE' },
     { id: 'site_synthesis', icon: Table, label: 'Synthèse par SITE CNTSCI' },
     { id: 'product_synthesis', icon: Grid, label: 'Synthèse Produits par Site' },
     { id: 'daily', icon: Clock, label: 'Synthèse Journalière' },
@@ -481,15 +495,16 @@ const App: React.FC = () => {
                activeTab === 'monthly' ? 'SYNTHÈSE MENSUELLE' : 
                activeTab === 'ai_analysis' ? 'ANALYSE INTELLIGENTE GEMINI' :
                activeTab === 'site_synthesis' ? 'SYNTHÈSE NATIONALE PAR SITE CNTSCI' : 
+               activeTab === 'rendu_synthesis' ? 'SYNTHÈSE : RENDU, TYPE PRODUIT, SITE' :
                activeTab === 'product_synthesis' ? 'SYNTHESE DISTRIBUTION DES PRODUITS SANGUIN PAR SITE' : 'DISTRIBUTION DES PSL'}
             </h2>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 bg-red-600/10 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-600/20"><MapPin size={12} /> {['site_synthesis', 'product_synthesis', 'ai_analysis'].includes(activeTab) || selectedSiteName === 'TOUS LES SITES' ? 'NIVEAU NATIONAL' : selectedSiteName}</div>
-              <div className="flex items-center gap-2 bg-blue-600/10 text-blue-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-600/20"><Calendar size={12} /> {activeTab !== 'monthly' && activeTab !== 'annual' && !['site_synthesis', 'product_synthesis', 'ai_analysis'].includes(activeTab) && `${selectedDay} `}{selectedMonth} {selectedYear}</div>
+              <div className="flex items-center gap-2 bg-red-600/10 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-600/20"><MapPin size={12} /> {['site_synthesis', 'product_synthesis', 'rendu_synthesis', 'ai_analysis'].includes(activeTab) || selectedSiteName === 'TOUS LES SITES' ? 'NIVEAU NATIONAL' : selectedSiteName}</div>
+              <div className="flex items-center gap-2 bg-blue-600/10 text-blue-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-600/20"><Calendar size={12} /> {activeTab !== 'monthly' && activeTab !== 'annual' && !['site_synthesis', 'product_synthesis', 'rendu_synthesis', 'ai_analysis'].includes(activeTab) && `${selectedDay} `}{selectedMonth} {selectedYear}</div>
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-             {!['site_synthesis', 'product_synthesis', 'ai_analysis'].includes(activeTab) && (
+             {!['site_synthesis', 'product_synthesis', 'rendu_synthesis', 'ai_analysis'].includes(activeTab) && (
                <div className="w-full sm:w-auto bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 flex items-center">
                   <div className="px-3 text-red-600" title="SÉLECTION SITE"><Globe size={16} /></div>
                   <select value={selectedSiteName} onChange={(e) => setSelectedSiteName(e.target.value)} className="w-full bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer pr-8 py-2 min-w-[150px]">{allSitesForSelect.map(s => <option key={s} value={s}>{s}</option>)}</select>
@@ -513,21 +528,22 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
           {[
             { label: 'Total Distribution', val: statsTotals.totalDist, pct: 100, icon: Database, color: 'text-red-600', bg: 'bg-red-600/10' },
+            { label: 'Nombre de Rendu', val: statsTotals.totalRendu, pct: 0, icon: RotateCcw, color: 'text-purple-600', bg: 'bg-purple-600/10' },
             { label: 'Total CGR', val: statsTotals.cgrDist, pct: statsTotals.cgrPct, icon: Droplets, color: 'text-red-500', bg: 'bg-red-500/10' },
             { label: 'Plasma Thérapeutique', val: statsTotals.plasmaDist, pct: statsTotals.plasmaPct, icon: Target, color: 'text-yellow-600', bg: 'bg-yellow-600/10' },
             { label: 'Concentré de Plaquettes', val: statsTotals.plaquettesDist, pct: statsTotals.plaquettesPct, icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10' }
           ].map((s, i) => (
-            <div key={i} className={`p-6 rounded-3xl border transition-all hover:scale-[1.02] relative group ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-2xl ${s.bg} ${s.color}`}><s.icon size={22} /></div>
+            <div key={i} className={`p-5 rounded-3xl border transition-all hover:scale-[1.02] relative group ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className={`p-2.5 rounded-xl ${s.bg} ${s.color}`}><s.icon size={20} /></div>
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{s.label}</p>
-                  <div className="text-2xl lg:text-3xl font-black tracking-tighter flex items-baseline justify-end gap-2">
-                    {s.val}
-                    <span className="text-xs font-bold text-slate-400">({s.pct}%)</span>
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">{s.label}</p>
+                  <div className="text-xl lg:text-2xl font-black tracking-tighter flex items-baseline justify-end gap-1.5">
+                    {s.val.toLocaleString('fr-FR')}
+                    {s.pct > 0 && <span className="text-[10px] font-bold text-slate-400">({s.pct}%)</span>}
                   </div>
                 </div>
               </div>
@@ -541,8 +557,8 @@ const App: React.FC = () => {
           <FacilityView data={filteredData} darkMode={darkMode} />
         ) : activeTab === 'site_synthesis' ? (
           <SiteSynthesis data={siteSynthesisData} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
-        ) : activeTab === 'product_synthesis' ? (
-          <DetailedSynthesis data={detailedSynthesisData} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
+        ) : activeTab === 'rendu_synthesis' || activeTab === 'product_synthesis' ? (
+          <DetailedSynthesis data={detailedSynthesisData} darkMode={darkMode} month={selectedMonth} year={selectedYear} focusRendu={activeTab === 'rendu_synthesis'} />
         ) : activeTab === 'ai_analysis' ? (
           <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
              <div className={`p-8 lg:p-12 rounded-[48px] border overflow-hidden relative ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-2xl shadow-slate-200'}`}>
@@ -601,6 +617,11 @@ const App: React.FC = () => {
                  </div>
                )}
             </div>
+            {isNationalView && (
+              <div className="max-w-4xl mx-auto">
+                <GeminiInsights data={mockData} currentView="Tableau de Bord Global National" darkMode={darkMode} />
+              </div>
+            )}
           </div>
         )}
       </main>
