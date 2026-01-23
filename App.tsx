@@ -531,7 +531,7 @@ const App: React.FC = () => {
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
           {[
             { label: 'Total Distribution', val: statsTotals.totalDist, pct: 100, icon: Database, color: 'text-red-600', bg: 'bg-red-600/10' },
-            { label: 'Nombre de Rendu', val: statsTotals.totalRendu, pct: 0, icon: RotateCcw, color: 'text-purple-600', bg: 'bg-purple-600/10' },
+            { label: 'TOTAL RENDU POCHES', val: statsTotals.totalRendu, pct: 0, icon: RotateCcw, color: 'text-purple-600', bg: 'bg-purple-600/10' },
             { label: 'Total CGR', val: statsTotals.cgrDist, pct: statsTotals.cgrPct, icon: Droplets, color: 'text-red-500', bg: 'bg-red-500/10' },
             { label: 'Plasma Thérapeutique', val: statsTotals.plasmaDist, pct: statsTotals.plasmaPct, icon: Target, color: 'text-yellow-600', bg: 'bg-yellow-600/10' },
             { label: 'Concentré de Plaquettes', val: statsTotals.plaquettesDist, pct: statsTotals.plaquettesPct, icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10' }
