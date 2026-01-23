@@ -31,7 +31,8 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
           facility,
           productType: product,
           counts: { ...row.counts },
-          total: row.total
+          total: row.total,
+          Bd_rendu: row.Bd_rendu || 0
         });
       } else {
         const existing = map.get(key)!;
@@ -39,6 +40,7 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
           existing.counts[group] = (existing.counts[group] || 0) + (row.counts[group] || 0);
         });
         existing.total += row.total;
+        existing.Bd_rendu += (row.Bd_rendu || 0);
       }
     });
 
@@ -56,6 +58,7 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
     let currentSite = '';
     let siteCounts: Record<BloodGroup, number> = BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: 0 }), {} as Record<BloodGroup, number>);
     let siteTotal = 0;
+    let siteRendu = 0;
 
     sortedBase.forEach((row, idx) => {
       const rowSite = row.site || '';
@@ -68,15 +71,18 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
           productType: 'TOTAL SITE',
           counts: { ...siteCounts },
           total: siteTotal,
+          Bd_rendu: siteRendu,
           isSubtotal: true
         });
         // Reset pour le nouveau site
         siteTotal = 0;
+        siteRendu = 0;
         BLOOD_GROUPS.forEach(g => siteCounts[g] = 0);
       }
 
       currentSite = rowSite;
       siteTotal += row.total;
+      siteRendu += (row.Bd_rendu || 0);
       BLOOD_GROUPS.forEach(g => {
         siteCounts[g] += (row.counts[g] || 0);
       });
@@ -92,6 +98,7 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
         productType: 'TOTAL SITE',
         counts: { ...siteCounts },
         total: siteTotal,
+        Bd_rendu: siteRendu,
         isSubtotal: true
       });
     }
@@ -110,7 +117,7 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-700">
-      <table className="w-full text-left border-collapse min-w-[1000px]">
+      <table className="w-full text-left border-collapse min-w-[1100px]">
         <thead>
           <tr className={`${darkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-50 text-slate-600'}`}>
             <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest border-r border-slate-200/50 dark:border-slate-600/50">Site</th>
@@ -119,6 +126,7 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
             {BLOOD_GROUPS.map(group => (
               <th key={group} className="px-2 py-4 text-[10px] font-black uppercase tracking-widest text-center">{group}</th>
             ))}
+            <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-center text-purple-600">Rendu</th>
             <th className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-right bg-red-600/5 text-red-600">Total</th>
           </tr>
         </thead>
@@ -165,6 +173,9 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
                     {row.counts[group] || 0}
                   </td>
                 ))}
+                <td className={`px-4 py-4 text-xs text-center tabular-nums font-bold ${isSubtotal ? 'text-slate-900 dark:text-white' : 'text-purple-600'}`}>
+                  {row.Bd_rendu || 0}
+                </td>
                 <td className={`px-4 py-4 text-xs font-black text-right tabular-nums border-l border-red-100/10 ${
                   isSubtotal 
                     ? 'bg-red-600 text-white text-sm' 
@@ -177,7 +188,7 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
           })}
           {rowsWithSubtotals.length === 0 && (
             <tr>
-              <td colSpan={BLOOD_GROUPS.length + 4} className="px-4 py-12 text-center text-xs italic text-slate-400 uppercase tracking-[0.3em]">
+              <td colSpan={BLOOD_GROUPS.length + 5} className="px-4 py-12 text-center text-xs italic text-slate-400 uppercase tracking-[0.3em]">
                 Aucun détail disponible pour cette sélection
               </td>
             </tr>
@@ -192,6 +203,9 @@ const DistributionTable: React.FC<Props> = ({ data, darkMode }) => {
                   {rowsWithSubtotals.filter(r => !r.isSubtotal).reduce((sum, r) => sum + (r.counts[group] || 0), 0)}
                 </td>
               ))}
+              <td className="px-4 py-4 text-xs text-center tabular-nums text-purple-600">
+                {rowsWithSubtotals.filter(r => !r.isSubtotal).reduce((sum, r) => sum + (r.Bd_rendu || 0), 0)}
+              </td>
               <td className="px-4 py-4 text-sm text-right tabular-nums text-red-600">
                 {rowsWithSubtotals.filter(r => !r.isSubtotal).reduce((sum, r) => sum + r.total, 0)}
               </td>
