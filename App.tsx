@@ -62,6 +62,7 @@ import PresProductSynthesis from './components/PresProductSynthesis';
 import Login from './components/Login';
 import Logo from './components/Logo';
 import { DistributionData, DistributionRow, BloodGroup, ProductType, MonthlyTrend } from './types';
+import { fetchSheetData } from './services/sheetService';
 
 const HARDCODED_SHEET_URL = "https://docs.google.com/spreadsheets/d/1iHaD6NfDQ0xKJP9lhhGdNn3eakmT1qUvu-YIL7kBXWg/edit?usp=sharing";
 
@@ -81,11 +82,29 @@ const App: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<string>('2026');
   const [selectedMonth, setSelectedMonth] = useState<string>('Janvier');
   const [selectedDay, setSelectedDay] = useState<string>('01');
-  const [selectedFacility, setSelectedFacility] = useState<string>('ALL');
   const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'annual' | 'facilities' | 'synthesis' | 'site_synthesis' | 'product_synthesis' | 'rendu_synthesis' | 'ai_analysis' | 'stock' | 'pres_product'>('stock');
   const [darkMode, setDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
   const [customData, setCustomData] = useState<DistributionRowExtended[] | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+
+  const syncWithSheet = async () => {
+    setIsSyncing(true);
+    try {
+      const data = await fetchSheetData();
+      if (data.length === 0) throw new Error("Le Sheet semble vide ou mal formaté.");
+      setCustomData(data);
+      setLastSync(new Date().toLocaleTimeString());
+      if (activeTab === 'stock') setActiveTab('synthesis');
+    } catch (err) {
+      console.error(err);
+      alert("Erreur de synchronisation : " + (err as Error).message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const navigationItems = useMemo(() => [
     { id: 'stock', icon: Box, label: 'Stock & Carte Live' },
@@ -186,17 +205,34 @@ const App: React.FC = () => {
     return allSitesDataMap[siteId];
   }, [selectedSiteName, siteId, nationalMockData, allSitesDataMap]);
 
+  // LOGIQUE DE FILTRAGE DES DONNÉES (SHEET OU MOCK)
   const filteredData = useMemo(() => {
     if (customData) {
       let data = customData;
-      if (selectedSiteName !== 'TOUS LES SITES') data = data.filter(row => row.site === selectedSiteName);
+      
+      // Filtre par Site
+      if (selectedSiteName !== 'TOUS LES SITES') {
+        const search = selectedSiteName.replace('POLE ', '').toLowerCase();
+        data = data.filter(row => row.site.toLowerCase().includes(search));
+      }
+      
+      // Filtre par Date (si les colonnes existent dans le Sheet)
+      // On s'adapte aux formats possibles
+      if (activeTab === 'daily') {
+         const targetDate = `${selectedDay}/${(MONTHS.indexOf(selectedMonth)+1).toString().padStart(2, '0')}/${selectedYear}`;
+         data = data.filter(row => !row.date || row.date === targetDate);
+      } else {
+         data = data.filter(row => !row.month || row.month.toLowerCase() === selectedMonth.toLowerCase());
+         data = data.filter(row => !row.year || row.year === selectedYear);
+      }
+
       return data;
     }
     return activeTab === 'daily' ? mockData.dailySite : mockData.monthlySite;
-  }, [activeTab, customData, mockData, selectedSiteName]);
+  }, [activeTab, customData, mockData, selectedSiteName, selectedDay, selectedMonth, selectedYear]);
 
   const detailedSynthesisData = useMemo(() => {
-    const sourceData = mockData.monthlySite.map(r => ({ ...r, site: selectedSiteName === 'TOUS LES SITES' ? (r as any).site : selectedSiteName } as DistributionRowExtended));
+    const sourceData = filteredData.map(r => ({ ...r, site: selectedSiteName === 'TOUS LES SITES' ? (r as any).site : selectedSiteName } as DistributionRowExtended));
     const aggregation: Record<string, Record<string, any>> = {};
     sourceData.forEach(row => {
       const s = row.site || selectedSiteName;
@@ -209,7 +245,7 @@ const App: React.FC = () => {
     const results: any[] = [];
     Object.entries(aggregation).forEach(([site, products]) => Object.entries(products).forEach(([product, data]) => results.push({ site, productType: product, ...data })));
     return results;
-  }, [mockData, selectedSiteName]);
+  }, [filteredData, selectedSiteName]);
 
   if (!isAuthenticated) return <Login onLogin={handleLogin} darkMode={darkMode} />;
 
@@ -234,40 +270,80 @@ const App: React.FC = () => {
 
       <main className={`transition-all duration-300 lg:ml-64 p-4 lg:p-8`}>
         <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-10">
-          <div>
-            <h2 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase mb-2">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase leading-tight">
               {activeTab === 'stock' ? 'DISPONIBILITÉ DES PSL' : activeTab.replace('_', ' ').toUpperCase()}
             </h2>
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 bg-red-600/10 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-red-600/20"><MapPin size={12} /> {selectedSiteName}</div>
-              <div className="flex items-center gap-2 bg-blue-600/10 text-blue-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-blue-600/20"><Calendar size={12} /> {selectedMonth} {selectedYear}</div>
+              <div className="flex items-center gap-2 bg-blue-600/10 text-blue-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-blue-600/20"><Calendar size={12} /> {selectedDay} {selectedMonth} {selectedYear}</div>
+              {customData && <div className="flex items-center gap-2 bg-green-600/10 text-green-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-green-600/20"><FileSpreadsheet size={12} /> Live Sheet ({filteredData.length} lignes)</div>}
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-             <div className="w-full sm:w-auto bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 flex items-center">
+          
+          <div className="flex flex-wrap items-center gap-3">
+             <div className="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5">
+                <Calendar size={16} className="text-blue-600 ml-2" />
+                <select value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer px-2 py-2 border-r border-slate-100 dark:border-slate-700">
+                  {DAYS.map(d => <option key={d} value={d.padStart(2, '0')}>{d.padStart(2, '0')}</option>)}
+                </select>
+                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer px-2 py-2 border-r border-slate-100 dark:border-slate-700">
+                  {MONTHS.map(m => <option key={m} value={m}>{m.substring(0, 3)}.</option>)}
+                </select>
+                <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer px-2 py-2">
+                  {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+             </div>
+
+             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 flex items-center">
                 <Globe size={16} className="text-red-600 ml-2" />
-                <select value={selectedSiteName} onChange={(e) => setSelectedSiteName(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer pr-8 py-2 min-w-[150px]">
+                <select value={selectedSiteName} onChange={(e) => setSelectedSiteName(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer pr-4 py-2 min-w-[120px]">
                   <option value="TOUS LES SITES">TOUS LES SITES</option>
                   {AVAILABLE_SITES.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                 </select>
               </div>
+
+             <button 
+               onClick={syncWithSheet}
+               disabled={isSyncing}
+               className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${isSyncing ? 'bg-slate-100 text-slate-400' : 'bg-green-600 text-white shadow-lg shadow-green-600/20 hover:scale-105 active:scale-95'}`}
+             >
+               {isSyncing ? <RefreshCw size={18} className="animate-spin" /> : <CloudDownload size={18} />}
+               <span className="hidden sm:inline">{isSyncing ? 'Synchronisation...' : 'Sync Sheet'}</span>
+             </button>
           </div>
         </header>
 
         {activeTab === 'stock' ? (
           <StockDashboard data={mockData} allSitesData={allSitesDataMap} darkMode={darkMode} onSiteSelect={(name) => setSelectedSiteName(name)} />
         ) : activeTab === 'pres_product' ? (
-          <PresProductSynthesis data={nationalMockData.summary} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
+          <PresProductSynthesis data={detailedSynthesisData} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
+        ) : activeTab === 'synthesis' ? (
+           <div className="space-y-8">
+              <DataCharts data={filteredData} title={`${selectedSiteName}`} darkMode={darkMode} />
+              <div className={`p-4 lg:p-8 rounded-[40px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+                  <DistributionTable data={filteredData} darkMode={darkMode} />
+              </div>
+           </div>
         ) : activeTab === 'annual' ? (
           <AnnualCharts data={mockData.annualTrend} darkMode={darkMode} siteName={selectedSiteName} />
         ) : activeTab === 'site_synthesis' ? (
-          <SiteSynthesis data={[]} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
+          <SiteSynthesis data={detailedSynthesisData} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
         ) : (
           <div className="space-y-8">
             <DataCharts data={filteredData} title={`${selectedSiteName}`} darkMode={darkMode} />
             <div className={`p-4 lg:p-8 rounded-3xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
                 <DistributionTable data={filteredData} darkMode={darkMode} />
             </div>
+          </div>
+        )}
+
+        {lastSync && (
+          <div className="fixed bottom-6 right-6 z-[60] animate-in slide-in-from-right-10">
+             <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-full shadow-2xl flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Dernière Sync: {lastSync}</span>
+             </div>
           </div>
         )}
       </main>
