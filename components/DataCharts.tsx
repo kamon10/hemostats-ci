@@ -32,6 +32,7 @@ const DataCharts: React.FC<Props> = ({ data, title, darkMode }) => {
 
   const totalDist = useMemo(() => data.reduce((acc, row) => acc + row.total, 0), [data]);
   const totalRendu = useMemo(() => data.reduce((acc, row) => acc + (row.Bd_rendu || 0), 0), [data]);
+  const totalPct = useMemo(() => totalDist > 0 ? (totalRendu / totalDist * 100).toFixed(2) : "0.00", [totalDist, totalRendu]);
 
   // Agrégation cumulative par type de produit avec attribution de couleurs spécifiques
   const productData = useMemo(() => {
@@ -175,20 +176,20 @@ const DataCharts: React.FC<Props> = ({ data, title, darkMode }) => {
               <RotateCcw size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold">Rendements des Distributions (Bd_rendu)</h3>
+              <h3 className="text-lg font-bold">RETOUR DE POCHES</h3>
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Ratio des retours consolidés par type</p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TOTAL RENDU POCHES</p>
-            <p className="text-xl font-black text-purple-600">{totalRendu.toLocaleString()}</p>
+            <p className="text-xl font-black text-purple-600">{totalRendu.toLocaleString()} <span className="text-sm text-purple-400 font-bold">({totalPct}%)</span></p>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
            {['CGR', 'PLASMA', 'PLAQUETTES'].map(type => {
               const typeTotal = data.filter(r => r.productType.toUpperCase().includes(type)).reduce((acc, r) => acc + r.total, 0);
               const typeRendu = data.filter(r => r.productType.toUpperCase().includes(type)).reduce((acc, r) => acc + r.Bd_rendu, 0);
-              const pct = typeTotal > 0 ? Math.round((typeRendu / typeTotal) * 100) : 0;
+              const pct = typeTotal > 0 ? (typeRendu / typeTotal * 100).toFixed(2) : "0.00";
               return (
                 <div key={type} className={`p-4 rounded-2xl border ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-200/50'}`}>
                    <div className="flex justify-between items-center mb-2">

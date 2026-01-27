@@ -25,17 +25,18 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
   const stats = useMemo(() => {
     const total = sortedData.reduce((sum, item) => sum + item.total, 0);
     const totalRendu = sortedData.reduce((sum, item) => sum + (item.Bd_rendu || 0), 0);
+    const renduPct = total > 0 ? (totalRendu / total * 100).toFixed(2) : "0.00";
     const leader = sortedData[0] || { site: '-', total: 0 };
     const average = sortedData.length > 0 ? Math.round(total / sortedData.length) : 0;
     
-    return { total, totalRendu, leader, average };
+    return { total, totalRendu, renduPct, leader, average };
   }, [sortedData]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
       {/* Section de Statistiques Simples (KPIs) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Total National */}
+        {/* Volume Global */}
         <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
           <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
             <Activity size={80} />
@@ -61,6 +62,7 @@ const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
             </p>
             <div className="text-3xl font-black tracking-tighter text-purple-600 mb-1 tabular-nums">
               {stats.totalRendu.toLocaleString('fr-FR')}
+              <span className="text-xs font-bold text-purple-400 ml-2">({stats.renduPct}%)</span>
             </div>
             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Retours consolidés</p>
           </div>

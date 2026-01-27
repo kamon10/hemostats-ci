@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { Lock, User, ChevronRight, ShieldCheck, AlertCircle, UserPlus, UserCheck, ArrowLeft } from 'lucide-react';
+import { Lock, User, ChevronRight, ShieldCheck, AlertCircle, UserPlus, UserCheck, ArrowLeft, ShieldAlert } from 'lucide-react';
 import Logo from './Logo';
 
 interface Props {
-  onLogin: (username: string) => void;
+  onLogin: (username: string, role: string) => void;
   darkMode: boolean;
 }
 
@@ -25,10 +25,18 @@ const Login: React.FC<Props> = ({ onLogin, darkMode }) => {
     // Simulation de traitement
     setTimeout(() => {
       if (mode === 'login') {
+        // Logique Super Administrateur
+        if (username.toLowerCase() === 'superadmin' && password === 'admin') {
+          onLogin('Administrateur Principal', 'Admin');
+          return;
+        }
+
         if (username.length >= 4 && password.length >= 4) {
-          onLogin(username);
+          // Détermination du rôle pour la démo
+          const role = username.toLowerCase().includes('admin') ? 'Admin' : 'Agent';
+          onLogin(username, role);
         } else {
-          setError('Identifiant ou mot de passe trop court (min. 4 car.).');
+          setError('Identifiant ou mot de passe incorrect.');
           setLoading(false);
         }
       } else {
@@ -48,10 +56,9 @@ const Login: React.FC<Props> = ({ onLogin, darkMode }) => {
           setLoading(false);
           return;
         }
-        // Simulation de succès d'inscription
-        onLogin(username);
+        onLogin(username, 'Agent');
       }
-    }, 1500);
+    }, 1200);
   };
 
   const toggleMode = () => {
@@ -71,11 +78,11 @@ const Login: React.FC<Props> = ({ onLogin, darkMode }) => {
       <div className={`w-full max-w-[460px] z-10 p-8 lg:p-12 rounded-[40px] border shadow-2xl transition-all duration-500 animate-in fade-in zoom-in-95 ${darkMode ? 'bg-slate-900/80 border-slate-800 shadow-black' : 'bg-white/90 border-slate-100 shadow-slate-200'}`}>
         <div className="flex flex-col items-center mb-10">
           <Logo size="lg" className="mb-6 drop-shadow-2xl animate-in zoom-in-75 duration-1000" />
-          <h1 className="text-2xl font-black tracking-tight uppercase mb-2">
+          <h1 className="text-2xl font-black tracking-tight uppercase mb-2 text-center">
             {mode === 'login' ? 'Connexion' : 'Inscription'} <span className="text-red-600">HÉMOSTATS CI</span>
           </h1>
           <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] text-center">
-            {mode === 'login' ? 'Accès sécurisé au portail de distribution' : 'Création de votre compte agent de santé'}
+            Portail National de Distribution des PSL
           </p>
         </div>
 
@@ -103,7 +110,7 @@ const Login: React.FC<Props> = ({ onLogin, darkMode }) => {
               <User size={18} className="text-slate-400" />
               <input 
                 type="text" 
-                placeholder="Ex: agent_01" 
+                placeholder="Identifiant" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="bg-transparent border-none outline-none w-full text-sm font-semibold"
@@ -145,7 +152,7 @@ const Login: React.FC<Props> = ({ onLogin, darkMode }) => {
           )}
 
           {error && (
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[11px] font-bold animate-shake">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[11px] font-bold">
               <AlertCircle size={14} /> {error}
             </div>
           )}
@@ -174,18 +181,17 @@ const Login: React.FC<Props> = ({ onLogin, darkMode }) => {
             className={`w-full py-2 text-[10px] font-black uppercase tracking-[0.15em] transition-colors flex items-center justify-center gap-2 ${darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
           >
             {mode === 'login' ? (
-              <>Vous n'avez pas de compte ? <span className="text-red-600">S'inscrire</span></>
+              <>Pas encore de compte ? <span className="text-red-600">S'inscrire</span></>
             ) : (
               <><ArrowLeft size={14} /> Retour à la <span className="text-red-600">connexion</span></>
             )}
           </button>
         </div>
 
-        <div className="mt-8 flex flex-col items-center gap-4">
-          <div className="w-full h-px bg-slate-200 dark:bg-slate-800"></div>
-          <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-            <ShieldCheck size={12} className="text-green-500" /> Authentification sécurisée HÉMOSTATS CI
-          </div>
+        {/* Aide pour le test SuperAdmin */}
+        <div className={`mt-10 p-4 rounded-2xl border border-dashed text-center ${darkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-200 bg-slate-50'}`}>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Accès Super Admin (Démo)</p>
+          <p className="text-[10px] font-black text-red-500">ID: superadmin | PASS: admin</p>
         </div>
       </div>
     </div>
