@@ -1,5 +1,5 @@
 
-import { DistributionData, BloodGroup, ProductType, SiteInfo, DistributionRow, MonthlyTrend } from './types';
+import { DistributionData, BloodGroup, ProductType, SiteInfo, DistributionRow, MonthlyTrend, StockInfo } from './types';
 
 export const BLOOD_GROUPS: BloodGroup[] = ['A+', 'A-', 'AB+', 'AB-' , 'B+', 'B-', 'O+', 'O-'];
 export const PRODUCT_TYPES: ProductType[] = [
@@ -19,49 +19,17 @@ export const DAYS = Array.from({ length: 31 }, (_, i) => (i + 1).toString());
 
 export const YEARS = ['2025', '2026', '2027', '2028'];
 
+// Coordonnées ajustées pour la carte détaillée 800x900
 export const AVAILABLE_SITES: SiteInfo[] = [
-  { 
-    id: 'treichville', 
-    name: 'CRTS TREICHVILLE', 
-    region: 'Abidjan',
-    facilities: ['CHU de Treichville', 'Hôpital Militaire d\'Abidjan', 'Polyclinique PISAM', 'CHU de Cocody'],
-    coords: { x: 70, y: 85 }
-  },
-  { 
-    id: 'bouake', 
-    name: 'CRTS BOUAKE', 
-    region: 'Gbêkê',
-    facilities: ['CHU de Bouaké', 'Hôpital de Zone'],
-    coords: { x: 55, y: 45 }
-  },
-  { 
-    id: 'korhogo', 
-    name: 'CRTS KORHOGO', 
-    region: 'Poro',
-    facilities: ['CHR Korhogo'],
-    coords: { x: 45, y: 15 }
-  },
-  { 
-    id: 'san-pedro', 
-    name: 'CRTS SAN PEDRO', 
-    region: 'San-Pédro',
-    facilities: ['CHR San-Pédro'],
-    coords: { x: 25, y: 88 }
-  },
-  { 
-    id: 'daloa', 
-    name: 'CRTS DALOA', 
-    region: 'Haut-Sassandra',
-    facilities: ['CHR Daloa'],
-    coords: { x: 35, y: 55 }
-  },
-  { 
-    id: 'yamoussoukro', 
-    name: 'CRTS YAMOUSSOUKRO', 
-    region: 'Bélier',
-    facilities: ['CHR Yamoussoukro', 'Moscati'],
-    coords: { x: 50, y: 65 }
-  }
+  { id: 'abidjan', name: 'POLE ABIDJAN', region: 'PRES ABIDJAN', coords: { x: 550, y: 780 } },
+  { id: 'bouake', name: 'POLE BOUAKE', region: 'PRES GBEKE', coords: { x: 480, y: 380 } },
+  { id: 'daloa', name: 'POLE DALOA', region: 'PRES HAUT SASSANDRA', coords: { x: 320, y: 480 } },
+  { id: 'korhogo', name: 'POLE KORHOGO', region: 'PRES PORO', coords: { x: 380, y: 150 } },
+  { id: 'san-pedro', name: 'POLE SAN-PEDRO', region: 'PRES SAN-PEDRO', coords: { x: 280, y: 780 } },
+  { id: 'man', name: 'POLE MAN', region: 'PRES TONPKI', coords: { x: 180, y: 450 } },
+  { id: 'odienne', name: 'POLE ODIENNE', region: 'PRES KABADOUGOU', coords: { x: 180, y: 200 } },
+  { id: 'bondoukou', name: 'POLE BONDOUKOU', region: 'PRES GONTOUGO', coords: { x: 650, y: 320 } },
+  { id: 'abengourou', name: 'POLE ABENGOUROU', region: 'PRES INDENIE DJUABLIN', coords: { x: 620, y: 550 } }
 ];
 
 const generateRandomCounts = (seed: number, multiplier: number) => {
@@ -88,19 +56,23 @@ const generateMockDataForSite = (site: SiteInfo, month: string, day: string, yea
       PRODUCT_TYPES.slice(0, 3).forEach((type, pIdx) => {
         const counts = generateRandomCounts(combinedSeed + fIdx + pIdx, mult);
         const total = Object.values(counts).reduce((a: any, b: any) => a + (b as number), 0) as number;
-        // Nombre de rendu simulé (entre 0 et 5% du total)
         const Bd_rendu = Math.floor(total * 0.05 * (combinedSeed % 10) / 10);
         
-        rows.push({ 
-          productType: type, 
-          facility: facility,
-          counts, 
-          total,
-          Bd_rendu
-        });
+        rows.push({ productType: type, facility: facility, counts, total, Bd_rendu });
       });
     });
     return rows;
+  };
+
+  const stock: StockInfo = {
+    cgr: 500 + (combinedSeed * 13 % 2000),
+    plasma: 100 + (combinedSeed * 7 % 400),
+    plaquettes: 20 + (combinedSeed * 5 % 80),
+    byGroup: BLOOD_GROUPS.reduce((acc, g, idx) => {
+      const units = 50 + (combinedSeed * (idx + 11) % 400);
+      const days = 4 + (idx % 12);
+      return { ...acc, [g]: { units, days } };
+    }, {} as any)
   };
 
   const annualTrend: MonthlyTrend[] = MONTHS.map((m, idx) => {
@@ -124,11 +96,9 @@ const generateMockDataForSite = (site: SiteInfo, month: string, day: string, yea
     },
     dailySite: createRows(0.3),
     monthlySite: createRows(2),
-    monthlyNational: [
-      { productType: 'CGR ADULTE', counts: { 'A+': 803, 'A-': 45, 'AB+': 129, 'AB-': 8, 'B+': 915, 'B-': 79, 'O+': 1902, 'O-': 141 }, total: 4022, Bd_rendu: 120 },
-      { productType: 'CGR PEDIATRIQUE', counts: { 'A+': 964, 'A-': 82, 'AB+': 177, 'AB-': 15, 'B+': 1050, 'B-': 93, 'O+': 2050, 'O-': 189 }, total: 4620, Bd_rendu: 85 },
-    ],
-    annualTrend: annualTrend
+    monthlyNational: [],
+    annualTrend: annualTrend,
+    stock: stock
   };
 };
 
@@ -137,4 +107,4 @@ export const GET_DATA_FOR_SITE = (siteId: string, month: string = 'Janvier', day
   return generateMockDataForSite(site, month, day, year);
 };
 
-export const INITIAL_DATA: DistributionData = GET_DATA_FOR_SITE('treichville');
+export const INITIAL_DATA: DistributionData = GET_DATA_FOR_SITE('abidjan');

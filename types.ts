@@ -17,6 +17,13 @@ export interface DistributionRow {
   Bd_rendu: number;
 }
 
+export interface StockInfo {
+  cgr: number;
+  plasma: number;
+  plaquettes: number;
+  byGroup: Record<BloodGroup, { units: number, days: number }>;
+}
+
 export interface MonthlyTrend {
   month: string;
   total: number;
@@ -30,7 +37,6 @@ export interface SiteInfo {
   name: string;
   region: string;
   facilities?: string[];
-  /** Coordonnées X/Y (0-100) pour le positionnement sur la carte SVG */
   coords: { x: number; y: number };
 }
 
@@ -38,7 +44,8 @@ export interface DistributionData {
   dailySite: DistributionRow[];
   monthlySite: DistributionRow[];
   monthlyNational: DistributionRow[];
-  annualTrend: MonthlyTrend[]; // Nouvelle propriété pour la vue annuelle
+  annualTrend: MonthlyTrend[];
+  stock?: StockInfo;
   metadata: {
     date: string;
     month: string;
