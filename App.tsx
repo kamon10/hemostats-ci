@@ -1,129 +1,139 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Activity, 
-  BarChart3, 
-  ChevronRight, 
-  Database, 
-  Droplets, 
-  Globe, 
-  Info, 
-  LayoutDashboard, 
   Moon, 
-  PieChart, 
   Sun,
-  TrendingUp,
   MapPin,
   Calendar, 
   Clock,
-  Upload,
   RefreshCw,
-  FileSpreadsheet,
-  CheckCircle2,
-  Link,
-  ExternalLink,
-  AlertCircle,
-  Wifi,
-  WifiOff,
-  XCircle,
-  Hospital,
-  CloudDownload,
-  Filter,
-  CalendarDays,
-  Target,
-  HelpCircle,
-  Package,
-  Layers,
-  History,
   LogOut,
-  User as UserIcon,
   Table,
   Grid,
-  Menu,
-  X,
-  BrainCircuit,
-  Sparkles,
+  Globe,
+  Loader2,
+  Hospital,
+  Package,
+  Database,
+  SearchX,
   RotateCcw,
-  ShieldCheck,
-  Users,
-  ShieldAlert,
-  Box
+  Building2,
+  TrendingUp,
+  ChevronRight,
+  Filter,
+  BarChart3,
+  Droplet,
+  PieChart
 } from 'lucide-react';
-import { INITIAL_DATA, BLOOD_GROUPS, AVAILABLE_SITES, GET_DATA_FOR_SITE, MONTHS, PRODUCT_TYPES, DAYS, YEARS } from './constants';
+import { BLOOD_GROUPS, MONTHS, DAYS, YEARS } from './constants';
 import DistributionTable from './components/DistributionTable';
 import DataCharts from './components/DataCharts';
 import GeminiInsights from './components/GeminiInsights';
 import FacilityView from './components/FacilityView';
 import AnnualCharts from './components/AnnualCharts';
 import SiteSynthesis from './components/SiteSynthesis';
-import DetailedSynthesis from './components/DetailedSynthesis';
-import StockDashboard from './components/StockDashboard';
-import PresProductSynthesis from './components/PresProductSynthesis';
+import ConsumptionAnalytics from './components/ConsumptionAnalytics';
 import Login from './components/Login';
 import Logo from './components/Logo';
-import { DistributionData, DistributionRow, BloodGroup, ProductType, MonthlyTrend } from './types';
+import { DistributionRowExtended, MonthlyTrend } from './types';
 import { fetchSheetData } from './services/sheetService';
-
-const HARDCODED_SHEET_URL = "https://docs.google.com/spreadsheets/d/1iHaD6NfDQ0xKJP9lhhGdNn3eakmT1qUvu-YIL7kBXWg/edit?usp=sharing";
-
-export interface DistributionRowExtended extends DistributionRow {
-  site: string;
-  facility: string;
-  date?: string;
-  month?: string;
-  year?: string;
-}
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isLoggedIn') === 'true');
   const [user, setUser] = useState<{name: string, role: string} | null>(JSON.parse(localStorage.getItem('user') || 'null'));
   
+  const today = new Date();
+  const [selectedYear, setSelectedYear] = useState<string>(today.getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>(MONTHS[today.getMonth()]);
+  const [selectedDay, setSelectedDay] = useState<string>(today.getDate().toString().padStart(2, '0'));
+
   const [selectedSiteName, setSelectedSiteName] = useState<string>('TOUS LES SITES');
-  const [selectedYear, setSelectedYear] = useState<string>('2026');
-  const [selectedMonth, setSelectedMonth] = useState<string>('Janvier');
-  const [selectedDay, setSelectedDay] = useState<string>('01');
-  const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'annual' | 'facilities' | 'synthesis' | 'site_synthesis' | 'product_synthesis' | 'rendu_synthesis' | 'ai_analysis' | 'stock' | 'pres_product'>('stock');
+  const [activeTab, setActiveTab] = useState<'synthesis' | 'daily' | 'monthly' | 'annual' | 'facilities' | 'consumption'>('synthesis');
   const [darkMode, setDarkMode] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [customData, setCustomData] = useState<DistributionRowExtended[] | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [hasInitialSyncDone, setHasInitialSyncDone] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   const syncWithSheet = async () => {
     setIsSyncing(true);
     try {
       const data = await fetchSheetData();
-      if (data.length === 0) throw new Error("Le Sheet semble vide ou mal formaté.");
       setCustomData(data);
-      setLastSync(new Date().toLocaleTimeString());
-      if (activeTab === 'stock') setActiveTab('synthesis');
+      setLastSync(new Date().toLocaleTimeString('fr-FR'));
+      setHasInitialSyncDone(true);
     } catch (err) {
-      console.error(err);
-      alert("Erreur de synchronisation : " + (err as Error).message);
+      console.error("Sync Error:", err);
+      setCustomData([]);
     } finally {
       setIsSyncing(false);
     }
   };
 
-  const navigationItems = useMemo(() => [
-    { id: 'stock', icon: Box, label: 'Stock & Carte Live' },
-    { id: 'pres_product', icon: Layers, label: 'Synthèse : PRES / PRODUIT' },
-    { id: 'synthesis', icon: Grid, label: 'Tableau de Bord Global' },
-    { id: 'ai_analysis', icon: BrainCircuit, label: 'Analyse IA Gemini' },
-    { id: 'rendu_synthesis', icon: RotateCcw, label: 'Synthèse : RENDU' },
-    { id: 'site_synthesis', icon: Table, label: 'Synthèse par SITE' },
-    { id: 'daily', icon: Clock, label: 'Journalier' },
-    { id: 'monthly', icon: Calendar, label: 'Mensuel' },
-    { id: 'annual', icon: CalendarDays, label: 'Annuel' },
-  ], []);
+  useEffect(() => {
+    if (isAuthenticated && !hasInitialSyncDone) {
+      syncWithSheet();
+    }
+  }, [isAuthenticated, hasInitialSyncDone]);
 
-  const visibleNavigationItems = useMemo(() => {
-    if (!user) return [];
-    return navigationItems;
-  }, [user, navigationItems]);
+  const dynamicSites = useMemo(() => {
+    if (!customData) return [];
+    const sites = Array.from(new Set(customData.map(d => d.site))).sort() as string[];
+    return sites.map(name => ({ id: name.toLowerCase().replace(/\s/g, '-'), name }));
+  }, [customData]);
 
-  const siteId = useMemo(() => AVAILABLE_SITES.find(s => s.name === selectedSiteName)?.id || 'abidjan', [selectedSiteName]);
+  const siteFilteredData = useMemo(() => {
+    if (!customData) return [];
+    return selectedSiteName === 'TOUS LES SITES' 
+      ? customData 
+      : customData.filter(r => r.site === selectedSiteName);
+  }, [customData, selectedSiteName]);
+
+  const selDayNum = parseInt(selectedDay);
+  const selMonthIdx = MONTHS.indexOf(selectedMonth);
+  const selYearNum = parseInt(selectedYear);
+
+  const currentDisplayData = useMemo(() => {
+    switch (activeTab) {
+      case 'daily':
+        return siteFilteredData.filter(row => row.day === selDayNum && row.monthIdx === selMonthIdx && row.year === selYearNum);
+      case 'synthesis':
+      case 'monthly':
+      case 'facilities':
+      case 'consumption':
+        return siteFilteredData.filter(row => row.monthIdx === selMonthIdx && row.year === selYearNum);
+      case 'annual':
+        return siteFilteredData.filter(row => row.year === selYearNum);
+      default:
+        return siteFilteredData;
+    }
+  }, [siteFilteredData, activeTab, selDayNum, selMonthIdx, selYearNum]);
+
+  const annualTrendData = useMemo(() => {
+    const yearData = siteFilteredData.filter(r => r.year === selYearNum);
+    return MONTHS.map((m, idx) => {
+      const monthRows = yearData.filter(r => r.monthIdx === idx);
+      return {
+        month: m.substring(0, 3),
+        total: monthRows.reduce((acc, r) => acc + r.total, 0),
+        cgr: monthRows.filter(r => r.productType.toUpperCase().includes('CGR')).reduce((acc, r) => acc + r.total, 0),
+        plasma: monthRows.filter(r => r.productType.toUpperCase().includes('PLASMA')).reduce((acc, r) => acc + r.total, 0),
+        plaquettes: monthRows.filter(r => r.productType.toUpperCase().includes('PLAQUETTE')).reduce((acc, r) => acc + r.total, 0)
+      } as MonthlyTrend;
+    });
+  }, [siteFilteredData, selYearNum]);
+
+  const stats = useMemo(() => {
+    if (!currentDisplayData.length) return { total: 0, facilities: 0, products: 0, cgr: 0, rendu: 0 };
+    const total = currentDisplayData.reduce((acc, row) => acc + row.total, 0);
+    const facilities = new Set(currentDisplayData.map(r => r.facility)).size;
+    const products = new Set(currentDisplayData.map(r => r.productType)).size;
+    const cgr = currentDisplayData.filter(r => r.productType.toUpperCase().includes('CGR')).reduce((s, r) => s + r.total, 0);
+    const rendu = currentDisplayData.reduce((acc, row) => acc + (row.Bd_rendu || 0), 0);
+    return { total, facilities, products, cgr, rendu };
+  }, [currentDisplayData]);
 
   const handleLogin = (username: string, role: string = 'Agent') => {
     setIsAuthenticated(true);
@@ -136,213 +146,244 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUser(null);
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('user');
+    localStorage.clear();
+    setCustomData(null);
+    setHasInitialSyncDone(false);
   };
-
-  const allSitesDataMap = useMemo(() => {
-    const map: Record<string, DistributionData> = {};
-    AVAILABLE_SITES.forEach(site => {
-      map[site.id] = GET_DATA_FOR_SITE(site.id, selectedMonth, selectedDay, selectedYear);
-    });
-    return map;
-  }, [selectedMonth, selectedDay, selectedYear]);
-
-  const nationalMockData = useMemo(() => {
-    const allData: DistributionRowExtended[] = [];
-    const monthlyNationalRows: DistributionRow[] = [];
-    
-    let nationalCgr = 0, nationalPlasma = 0, nationalPlaquettes = 0;
-    const nationalGroups: any = BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: { units: 0, days: 0 } }), {});
-
-    AVAILABLE_SITES.forEach(site => {
-      const sData = allSitesDataMap[site.id];
-      const rows = activeTab === 'daily' ? sData.dailySite : sData.monthlySite;
-      rows.forEach(r => allData.push({ ...r, site: site.name, facility: r.facility || 'Hôpital Principal' }));
-      monthlyNationalRows.push(...sData.monthlySite);
-      
-      if (sData.stock) {
-        nationalCgr += sData.stock.cgr;
-        nationalPlasma += sData.stock.plasma;
-        nationalPlaquettes += sData.stock.plaquettes;
-        BLOOD_GROUPS.forEach(g => {
-          nationalGroups[g].units += sData.stock!.byGroup[g].units;
-          nationalGroups[g].days = Math.max(nationalGroups[g].days, sData.stock!.byGroup[g].days);
-        });
-      }
-    });
-
-    return {
-      daily: allData,
-      monthly: allData,
-      summary: monthlyNationalRows,
-      stock: {
-        cgr: nationalCgr,
-        plasma: nationalPlasma,
-        plaquettes: nationalPlaquettes,
-        byGroup: nationalGroups
-      },
-      metadata: {
-        date: `${selectedDay}/${(MONTHS.indexOf(selectedMonth)+1).toString().padStart(2, '0')}/${selectedYear}`,
-        month: selectedMonth.toUpperCase(),
-        site: 'TOUS LES SITES',
-        siteId: 'all'
-      }
-    };
-  }, [selectedMonth, selectedDay, selectedYear, activeTab, allSitesDataMap]);
-
-  const mockData = useMemo(() => {
-    if (selectedSiteName === 'TOUS LES SITES') {
-      return {
-        dailySite: nationalMockData.daily,
-        monthlySite: nationalMockData.monthly,
-        monthlyNational: nationalMockData.summary,
-        metadata: nationalMockData.metadata,
-        annualTrend: [],
-        stock: nationalMockData.stock
-      } as DistributionData;
-    }
-    return allSitesDataMap[siteId];
-  }, [selectedSiteName, siteId, nationalMockData, allSitesDataMap]);
-
-  // LOGIQUE DE FILTRAGE DES DONNÉES (SHEET OU MOCK)
-  const filteredData = useMemo(() => {
-    if (customData) {
-      let data = customData;
-      
-      // Filtre par Site
-      if (selectedSiteName !== 'TOUS LES SITES') {
-        const search = selectedSiteName.replace('POLE ', '').toLowerCase();
-        data = data.filter(row => row.site.toLowerCase().includes(search));
-      }
-      
-      // Filtre par Date (si les colonnes existent dans le Sheet)
-      // On s'adapte aux formats possibles
-      if (activeTab === 'daily') {
-         const targetDate = `${selectedDay}/${(MONTHS.indexOf(selectedMonth)+1).toString().padStart(2, '0')}/${selectedYear}`;
-         data = data.filter(row => !row.date || row.date === targetDate);
-      } else {
-         data = data.filter(row => !row.month || row.month.toLowerCase() === selectedMonth.toLowerCase());
-         data = data.filter(row => !row.year || row.year === selectedYear);
-      }
-
-      return data;
-    }
-    return activeTab === 'daily' ? mockData.dailySite : mockData.monthlySite;
-  }, [activeTab, customData, mockData, selectedSiteName, selectedDay, selectedMonth, selectedYear]);
-
-  const detailedSynthesisData = useMemo(() => {
-    const sourceData = filteredData.map(r => ({ ...r, site: selectedSiteName === 'TOUS LES SITES' ? (r as any).site : selectedSiteName } as DistributionRowExtended));
-    const aggregation: Record<string, Record<string, any>> = {};
-    sourceData.forEach(row => {
-      const s = row.site || selectedSiteName;
-      if (!aggregation[s]) aggregation[s] = {};
-      if (!aggregation[s][row.productType]) aggregation[s][row.productType] = { total: 0, Bd_rendu: 0, ...BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: 0 }), {}) };
-      BLOOD_GROUPS.forEach(g => aggregation[s][row.productType][g] += (row.counts[g] || 0));
-      aggregation[s][row.productType].total += row.total;
-      aggregation[s][row.productType].Bd_rendu += (row.Bd_rendu || 0);
-    });
-    const results: any[] = [];
-    Object.entries(aggregation).forEach(([site, products]) => Object.entries(products).forEach(([product, data]) => results.push({ site, productType: product, ...data })));
-    return results;
-  }, [filteredData, selectedSiteName]);
 
   if (!isAuthenticated) return <Login onLogin={handleLogin} darkMode={darkMode} />;
 
+  if (!hasInitialSyncDone && isSyncing) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+        <Logo size="lg" className="mb-8 animate-float" />
+        <Loader2 size={40} className="animate-spin text-red-600 mb-4" />
+        <h2 className="text-xl font-black uppercase tracking-tighter">Flux CNTSCI...</h2>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-2">Récupération des données temps réel</p>
+      </div>
+    );
+  }
+
+  const menuItems = [
+    { id: 'synthesis', icon: Grid, label: 'Synthèse IA' },
+    { id: 'daily', icon: Clock, label: 'Journalier' },
+    { id: 'monthly', icon: Calendar, label: 'Mensuel' },
+    { id: 'consumption', icon: PieChart, label: 'Consommation' },
+    { id: 'annual', icon: TrendingUp, label: 'Annuel' },
+    { id: 'facilities', icon: Hospital, label: 'Structures' },
+  ];
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-      <aside className={`fixed left-0 top-0 h-full w-64 p-6 flex flex-col border-r transition-all duration-300 z-50 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'} ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3"><Logo size="md" /><h1 className="text-xl font-black tracking-tight uppercase leading-none">HémoStats <span className="text-red-600">CI</span></h1></div>
+      <aside className={`fixed left-0 top-0 h-full w-64 p-6 flex flex-col border-r transition-all z-50 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'} hidden lg:flex`}>
+        <div className="flex items-center gap-3 mb-10">
+          <Logo size="sm" />
+          <h1 className="text-lg font-black tracking-tight uppercase leading-none">HémoStats <span className="text-red-600">CI</span></h1>
         </div>
-        <nav className="space-y-1 flex-1 overflow-y-auto">
-          {visibleNavigationItems.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all ${activeTab === tab.id ? 'bg-red-600 text-white shadow-xl shadow-red-600/30 font-bold' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
-              <tab.icon size={18} /> <span className="text-[10px] uppercase tracking-widest text-left leading-tight">{tab.label}</span>
+
+        <nav className="space-y-1 flex-1">
+          {menuItems.map(item => (
+            <button 
+              key={item.id} 
+              onClick={() => setActiveTab(item.id as any)} 
+              className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all ${activeTab === item.id ? 'bg-red-600 text-white shadow-xl shadow-red-600/30' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+            >
+              <div className="flex items-center gap-3">
+                <item.icon size={18} /> 
+                <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
+              </div>
+              {activeTab === item.id && <ChevronRight size={14} />}
             </button>
           ))}
         </nav>
-        <div className="mt-auto pt-4 space-y-2">
-           <button onClick={() => setDarkMode(!darkMode)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-colors ${darkMode ? 'text-slate-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100'}`}>{darkMode ? <Sun size={18} /> : <Moon size={18} />}<span className="text-[10px] font-black uppercase tracking-widest">{darkMode ? 'Mode Clair' : 'Mode Sombre'}</span></button>
-           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-500/10 transition-colors" onClick={handleLogout}><LogOut size={18} /><span className="text-[10px] font-black uppercase tracking-widest">Déconnexion</span></button>
+
+        <div className="mt-auto space-y-2 pt-4 border-t border-slate-100 dark:border-slate-700">
+           <button onClick={() => setDarkMode(!darkMode)} className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+             <span className="text-[10px] font-black uppercase tracking-widest">{darkMode ? 'Mode Clair' : 'Mode Sombre'}</span>
+           </button>
+           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-500/10 transition-colors">
+             <LogOut size={18} />
+             <span className="text-[10px] font-black uppercase tracking-widest">Déconnexion</span>
+           </button>
         </div>
       </aside>
 
-      <main className={`transition-all duration-300 lg:ml-64 p-4 lg:p-8`}>
+      <main className="lg:ml-64 p-4 lg:p-8">
         <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-10">
-          <div className="flex flex-col gap-2">
-            <h2 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase leading-tight">
-              {activeTab === 'stock' ? 'DISPONIBILITÉ DES PSL' : activeTab.replace('_', ' ').toUpperCase()}
+          <div className="space-y-1">
+            <h2 className="text-2xl lg:text-3xl font-black tracking-tighter uppercase flex items-center gap-3">
+              {menuItems.find(i => i.id === activeTab)?.label}
+              {activeTab === 'daily' && <span className="text-sm bg-blue-600 text-white px-2 py-0.5 rounded-md">Live</span>}
             </h2>
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 bg-red-600/10 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-red-600/20"><MapPin size={12} /> {selectedSiteName}</div>
               <div className="flex items-center gap-2 bg-blue-600/10 text-blue-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-blue-600/20"><Calendar size={12} /> {selectedDay} {selectedMonth} {selectedYear}</div>
-              {customData && <div className="flex items-center gap-2 bg-green-600/10 text-green-600 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border border-green-600/20"><FileSpreadsheet size={12} /> Live Sheet ({filteredData.length} lignes)</div>}
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3">
-             <div className="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5">
-                <Calendar size={16} className="text-blue-600 ml-2" />
-                <select value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer px-2 py-2 border-r border-slate-100 dark:border-slate-700">
+          <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-[24px] shadow-sm border border-slate-100 dark:border-slate-700">
+             <div className="flex items-center gap-2 px-3 py-1.5">
+                <Filter size={14} className="text-slate-400" />
+                <select value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase cursor-pointer">
                   {DAYS.map(d => <option key={d} value={d.padStart(2, '0')}>{d.padStart(2, '0')}</option>)}
                 </select>
-                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer px-2 py-2 border-r border-slate-100 dark:border-slate-700">
-                  {MONTHS.map(m => <option key={m} value={m}>{m.substring(0, 3)}.</option>)}
+                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase cursor-pointer">
+                  {MONTHS.map(m => <option key={m} value={m}>{m.substring(0, 3)}</option>)}
                 </select>
-                <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer px-2 py-2">
+                <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase cursor-pointer">
                   {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
              </div>
 
-             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-1.5 flex items-center">
-                <Globe size={16} className="text-red-600 ml-2" />
-                <select value={selectedSiteName} onChange={(e) => setSelectedSiteName(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase tracking-widest cursor-pointer pr-4 py-2 min-w-[120px]">
+             <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2"></div>
+
+             <div className="flex items-center gap-2 px-3 py-1.5">
+                <Globe size={14} className="text-red-600" />
+                <select value={selectedSiteName} onChange={(e) => setSelectedSiteName(e.target.value)} className="bg-transparent border-none outline-none text-[10px] font-black uppercase cursor-pointer min-w-[140px]">
                   <option value="TOUS LES SITES">TOUS LES SITES</option>
-                  {AVAILABLE_SITES.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  {dynamicSites.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                 </select>
               </div>
 
-             <button 
-               onClick={syncWithSheet}
-               disabled={isSyncing}
-               className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${isSyncing ? 'bg-slate-100 text-slate-400' : 'bg-green-600 text-white shadow-lg shadow-green-600/20 hover:scale-105 active:scale-95'}`}
-             >
-               {isSyncing ? <RefreshCw size={18} className="animate-spin" /> : <CloudDownload size={18} />}
-               <span className="hidden sm:inline">{isSyncing ? 'Synchronisation...' : 'Sync Sheet'}</span>
+             <button onClick={syncWithSheet} disabled={isSyncing} className={`p-2 rounded-xl transition-all ${isSyncing ? 'bg-slate-100' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-green-600'}`}>
+               <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
              </button>
           </div>
         </header>
 
-        {activeTab === 'stock' ? (
-          <StockDashboard data={mockData} allSitesData={allSitesDataMap} darkMode={darkMode} onSiteSelect={(name) => setSelectedSiteName(name)} />
-        ) : activeTab === 'pres_product' ? (
-          <PresProductSynthesis data={detailedSynthesisData} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
-        ) : activeTab === 'synthesis' ? (
-           <div className="space-y-8">
-              <DataCharts data={filteredData} title={`${selectedSiteName}`} darkMode={darkMode} />
-              <div className={`p-4 lg:p-8 rounded-[40px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
-                  <DistributionTable data={filteredData} darkMode={darkMode} />
+        {/* Synthèse KPI dynamique pour toutes les vues */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
+          {[
+            { label: 'Unités Distribuées', val: stats.total, icon: Database, color: 'text-red-600', bg: 'bg-red-600/10' },
+            { label: 'Poches Rendues', val: stats.rendu, icon: RotateCcw, color: 'text-purple-600', bg: 'bg-purple-600/10' },
+            { label: 'Établissements', val: stats.facilities, icon: Hospital, color: 'text-blue-600', bg: 'bg-blue-600/10' },
+            { label: 'Types Produits', val: stats.products, icon: Package, color: 'text-amber-600', bg: 'bg-amber-600/10' },
+            { label: 'Concentrés (CGR)', val: stats.cgr, icon: Activity, color: 'text-indigo-600', bg: 'bg-indigo-600/10' }
+          ].map((s, i) => (
+            <div key={i} className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-slate-800 border-slate-700 shadow-lg shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{s.label}</p>
+              <div className="flex items-center justify-between">
+                <div className="text-3xl font-black tracking-tighter tabular-nums">{s.val.toLocaleString()}</div>
+                <div className={`p-3 rounded-2xl ${s.bg} ${s.color}`}><s.icon size={20} /></div>
               </div>
-           </div>
-        ) : activeTab === 'annual' ? (
-          <AnnualCharts data={mockData.annualTrend} darkMode={darkMode} siteName={selectedSiteName} />
-        ) : activeTab === 'site_synthesis' ? (
-          <SiteSynthesis data={detailedSynthesisData} darkMode={darkMode} month={selectedMonth} year={selectedYear} />
-        ) : (
-          <div className="space-y-8">
-            <DataCharts data={filteredData} title={`${selectedSiteName}`} darkMode={darkMode} />
-            <div className={`p-4 lg:p-8 rounded-3xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
-                <DistributionTable data={filteredData} darkMode={darkMode} />
             </div>
-          </div>
-        )}
+          ))}
+        </section>
+
+        <div className="space-y-10">
+          {currentDisplayData.length > 0 || activeTab === 'annual' || activeTab === 'consumption' ? (
+            <div className={`grid grid-cols-1 ${activeTab === 'synthesis' ? 'lg:grid-cols-3' : 'grid-cols-1'} gap-8`}>
+              <div className={activeTab === 'synthesis' ? 'lg:col-span-2 space-y-10' : 'space-y-10'}>
+                {activeTab === 'annual' ? (
+                  <AnnualCharts data={annualTrendData} darkMode={darkMode} siteName={selectedSiteName} />
+                ) : activeTab === 'facilities' ? (
+                  <FacilityView data={currentDisplayData} darkMode={darkMode} />
+                ) : activeTab === 'consumption' ? (
+                  <ConsumptionAnalytics data={customData || []} darkMode={darkMode} />
+                ) : activeTab === 'synthesis' ? (
+                  <SiteSynthesis 
+                    data={currentDisplayData} 
+                    darkMode={darkMode} 
+                    month={selectedMonth} 
+                    year={selectedYear} 
+                  />
+                ) : (
+                  <>
+                    {/* Vue Journalière avec le Pulse Goutte de Sang */}
+                    {activeTab === 'daily' && (
+                      <div className={`mb-10 p-8 rounded-[40px] border relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-xl shadow-red-500/5'}`}>
+                        <div className="relative z-10 flex-1">
+                          <h3 className="text-xl font-black uppercase tracking-tighter mb-2 flex items-center gap-2 text-red-600">
+                             <Droplet size={24} /> Moniteur Live Distribution
+                          </h3>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-6">Analyse flux temps-réel du {selectedDay}/{selMonthIdx + 1}/{selectedYear}</p>
+                          <div className="grid grid-cols-2 gap-4">
+                             <div className="p-4 rounded-2xl bg-red-600/5 border border-red-500/10">
+                               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Activité Site</p>
+                               <p className="text-2xl font-black tabular-nums text-red-600">{stats.total}</p>
+                             </div>
+                             <div className="p-4 rounded-2xl bg-indigo-600/5 border border-indigo-500/10">
+                               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total National (Mois)</p>
+                               <p className="text-2xl font-black tabular-nums text-indigo-600">{(customData || []).filter(r => r.monthIdx === selMonthIdx && r.year === selYearNum).reduce((s, r) => s + r.total, 0).toLocaleString()}</p>
+                             </div>
+                          </div>
+                        </div>
+
+                        {/* LE PULSE GOUTTE DE SANG QUI SE RECHARGE */}
+                        <div className="relative w-48 h-64 flex items-center justify-center">
+                           <div className="absolute inset-0 bg-red-600/5 rounded-full blur-3xl"></div>
+                           <svg viewBox="0 0 100 120" className="w-32 h-40 drop-shadow-2xl relative z-10">
+                              <defs>
+                                <clipPath id="bloodClip">
+                                  <path d="M50 5C50 5 85 45 85 75C85 94.33 69.33 110 50 110C30.67 110 15 94.33 15 75C15 45 50 5 50 5Z" />
+                                </clipPath>
+                              </defs>
+                              {/* Background Goutte (Vide) */}
+                              <path d="M50 5C50 5 85 45 85 75C85 94.33 69.33 110 50 110C30.67 110 15 94.33 15 75C15 45 50 5 50 5Z" fill="#FEE2E2" />
+                              {/* Remplissage animé */}
+                              <g clipPath="url(#bloodClip)">
+                                <rect x="0" y="0" width="100" height="120" fill="#E11D48" className="animate-blood-refill" style={{ transformOrigin: 'bottom' }} />
+                              </g>
+                              {/* Contour */}
+                              <path d="M50 5C50 5 85 45 85 75C85 94.33 69.33 110 50 110C30.67 110 15 94.33 15 75C15 45 50 5 50 5Z" fill="none" stroke="#E11D48" strokeWidth="2" />
+                           </svg>
+                           <div className="absolute bottom-4 text-center">
+                              <span className="text-[10px] font-black text-red-600 uppercase tracking-widest animate-pulse">Syncing...</span>
+                           </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <DataCharts data={currentDisplayData} title={selectedSiteName} darkMode={darkMode} />
+                    <div className={`p-8 rounded-[40px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
+                      <h3 className="text-xs font-black uppercase tracking-[0.3em] mb-6 flex items-center gap-2"><Table size={16} className="text-red-600" /> Registre de Distribution</h3>
+                      <DistributionTable data={currentDisplayData} darkMode={darkMode} />
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              {activeTab === 'synthesis' && (
+                <div className="space-y-8">
+                  <GeminiInsights 
+                    data={{ 
+                      monthlySite: currentDisplayData, 
+                      monthlyNational: customData || [], 
+                      metadata: { 
+                        site: selectedSiteName,
+                        date: `${selectedDay}/${selMonthIdx + 1}/${selectedYear}`,
+                        month: selectedMonth
+                      } 
+                    } as any} 
+                    currentView={activeTab} 
+                    darkMode={darkMode} 
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`p-20 flex flex-col items-center justify-center rounded-[40px] border border-dashed ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+              <div className="bg-amber-100 dark:bg-amber-900/30 p-6 rounded-full mb-6">
+                <SearchX size={54} className="text-amber-600" />
+              </div>
+              <h3 className="text-xl font-black uppercase tracking-tight mb-2">Pas de données détectées</h3>
+              <p className="text-slate-500 font-bold uppercase tracking-widest text-[9px] max-w-xs text-center leading-relaxed">
+                Aucun enregistrement pour le <span className="text-red-600">{selectedDay}/{selMonthIdx + 1}/{selectedYear}</span>. Essayez une autre date ou synchronisez.
+              </p>
+              <div className="flex flex-wrap justify-center gap-4 mt-10">
+                <button onClick={() => { setActiveTab('monthly'); }} className="px-8 py-4 bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-transform shadow-lg">Voir le mois</button>
+                <button onClick={syncWithSheet} className="px-8 py-4 border border-slate-200 dark:border-slate-700 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Forcer Sync</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {lastSync && (
           <div className="fixed bottom-6 right-6 z-[60] animate-in slide-in-from-right-10">
-             <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-full shadow-2xl flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Dernière Sync: {lastSync}</span>
+             <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700 px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 border-l-4 border-l-green-500">
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Sync CNTSCI : {lastSync}</span>
              </div>
           </div>
         )}

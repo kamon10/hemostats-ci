@@ -7,7 +7,6 @@
     <title>HÉMOSTATS CI - Portail Analytique</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <style>
         body { font-family: 'Inter', sans-serif; }
         
@@ -23,15 +22,39 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
-        .animate-float { animation: float 4s ease-in-out infinite; }
-        .animate-subtle-pulse { animation: subtle-pulse 3s ease-in-out infinite; }
-        
-        /* Staggered entry classes */
-        .animate-in {
-          animation-duration: 0.5s;
-          animation-fill-mode: both;
+        @keyframes pulse-red-glow {
+            0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(225, 29, 72, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
         }
 
+        @keyframes pulse-purple-glow {
+            0% { box-shadow: 0 0 0 0 rgba(147, 51, 234, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(147, 51, 234, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(147, 51, 234, 0); }
+        }
+
+        @keyframes pulse-indigo-glow {
+            0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(79, 70, 229, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+        }
+
+        @keyframes blood-refill {
+            0% { height: 10%; opacity: 0.5; }
+            50% { height: 100%; opacity: 1; }
+            80% { height: 100%; opacity: 1; }
+            100% { height: 10%; opacity: 0.5; }
+        }
+
+        .pulse-red { animation: pulse-red-glow 2s infinite; }
+        .pulse-purple { animation: pulse-purple-glow 2.5s infinite; }
+        .pulse-indigo { animation: pulse-indigo-glow 3s infinite; }
+
+        .animate-float { animation: float 4s ease-in-out infinite; }
+        .animate-subtle-pulse { animation: subtle-pulse 3s ease-in-out infinite; }
+        .animate-blood-refill { animation: blood-refill 4s ease-in-out infinite; }
+        
         /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
@@ -46,14 +69,6 @@
         .dark ::-webkit-scrollbar-thumb {
             background: #475569;
         }
-
-        /* Leaflet Dark Mode */
-        .dark .leaflet-tile {
-            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
-        }
-        .dark .leaflet-container {
-            background: #0f172a;
-        }
     </style>
 <script type="importmap">
 {
@@ -63,8 +78,6 @@
     "react": "https://esm.sh/react@^19.2.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "recharts": "https://esm.sh/recharts@^3.6.0",
-    "leaflet": "https://esm.sh/leaflet@1.9.4",
-    "react-leaflet": "https://esm.sh/react-leaflet@^5.0.0",
     "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
   }
 }

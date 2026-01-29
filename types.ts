@@ -17,13 +17,6 @@ export interface DistributionRow {
   Bd_rendu: number;
 }
 
-export interface StockInfo {
-  cgr: number;
-  plasma: number;
-  plaquettes: number;
-  byGroup: Record<BloodGroup, { units: number, days: number }>;
-}
-
 export interface MonthlyTrend {
   month: string;
   total: number;
@@ -45,7 +38,6 @@ export interface DistributionData {
   monthlySite: DistributionRow[];
   monthlyNational: DistributionRow[];
   annualTrend: MonthlyTrend[];
-  stock?: StockInfo;
   metadata: {
     date: string;
     month: string;
@@ -58,4 +50,15 @@ export interface Insight {
   title: string;
   content: string;
   type: 'info' | 'warning' | 'success';
+}
+
+export interface DistributionRowExtended extends DistributionRow {
+  site: string;
+  pres: string; // Nouvelle hiérarchie
+  facility: string;
+  dateStr: string;
+  day: number;
+  monthIdx: number;
+  year: number;
+  monthName: string;
 }

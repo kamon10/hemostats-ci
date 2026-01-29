@@ -1,7 +1,7 @@
 
-import { DistributionData, BloodGroup, ProductType, SiteInfo, DistributionRow, MonthlyTrend, StockInfo } from './types';
+import { DistributionData, BloodGroup, ProductType, SiteInfo, DistributionRow, MonthlyTrend } from './types';
 
-export const BLOOD_GROUPS: BloodGroup[] = ['A+', 'A-', 'AB+', 'AB-' , 'B+', 'B-', 'O+', 'O-'];
+export const BLOOD_GROUPS: BloodGroup[] = ['A+', 'A-', 'AB+', 'AB-' , 'B+' , 'B-', 'O+', 'O-'];
 export const PRODUCT_TYPES: ProductType[] = [
   'CGR ADULTE',
   'CGR PEDIATRIQUE',
@@ -19,92 +19,89 @@ export const DAYS = Array.from({ length: 31 }, (_, i) => (i + 1).toString());
 
 export const YEARS = ['2025', '2026', '2027', '2028'];
 
-// Coordonnées ajustées pour la carte détaillée 800x900
+/**
+ * Hiérarchie Officielle du CNTSCI
+ * Un PRES supervise plusieurs Sites Techniques (CRTS/CDTS/SP)
+ */
+export const PRES_STRUCTURE: Record<string, string[]> = {
+  "PRES ABIDJAN": [
+    "01 CRTS TREICHVILLE", "09 CDTS BINGERVILLE", "02 SP YOPOUGON CHU", 
+    "06 SP PORT BOUET", "04 SP ABOBO", "07 SP ANYAMA", 
+    "05 SP CHU COCODY", "11 CDTS ABOISSO", "10 CDTS BONOUA", 
+    "14 CDTS ADZOPE", "13 CDTS AGBOVILLE", "12 CDTS DABOU"
+  ],
+  "PRES BELIER": [
+    "30 CRTS YAMOUSSOUKRO", "31 CDTS TOUMODI", "32 CDTS GAGNOA", 
+    "36 CDTS DIVO", "26 CDTS BOUAFLE", "37 CDTS DIMBOKRO"
+  ],
+  "PRES GBEKE": ["33 CRTS BOUAKE"],
+  "PRES PORO": ["34 CRTS KORHOGO", "35 CDTS FERKE"],
+  "PRES INDENIE DJUABLIN": ["40 CRTS ABENGOUROU", "44 CDTS DAOUKRO", "43 CDTS BONGOUANOU"],
+  "PRES GONTOUGO": ["41 CRTS BONDOUKOU", "42 CDTS BOUNA"],
+  "PRES HAUT SASSANDRA": ["20 CRTS DALOA", "21 CDTS SEGUELA"],
+  "PRES SAN-PEDRO": ["22 CRTS SAN-PEDRO"],
+  "PRES TONPKI": ["23 CRTS MAN", "27 CDTS DUEKOUE"],
+  "PRES KABADOUGOU": ["24 CRTS ODIENNE"]
+};
+
+/**
+ * Détecte le PRES rattaché à un site donné.
+ * Gère les codes (01, 23, etc.) et les noms de villes (Treichville, Man, etc.)
+ */
+export const GET_PRES_FOR_SITE = (siteName: string): string => {
+  if (!siteName) return "HORS PRES";
+  const normalizedInput = siteName.toUpperCase().trim();
+  
+  // 1. Extraction des codes numériques (ex: "23" dans "23 CRTS MAN")
+  const codesInInput: string[] = normalizedInput.match(/\d+/g) || [];
+  
+  for (const [presName, sites] of Object.entries(PRES_STRUCTURE)) {
+    for (const siteRef of sites) {
+      const siteRefUpper = siteRef.toUpperCase();
+      const refParts = siteRefUpper.split(' ');
+      const refCode = refParts[0]; // Code (ex: 01, 23)
+      
+      // On cherche le mot significatif (souvent la ville, ex: "MAN" ou "TREICHVILLE")
+      // On ignore "CRTS", "CDTS", "SP"
+      const significantWords = refParts.filter(w => !['CRTS', 'CDTS', 'SP', 'CHU'].includes(w) && isNaN(parseInt(w)));
+      
+      // Match par code numérique exact
+      if (codesInInput.includes(refCode) || (refCode.startsWith('0') && codesInInput.includes(refCode.substring(1)))) {
+        return presName;
+      }
+
+      // Match par mot significatif (ex: "MAN")
+      // Correction : >= 3 pour inclure "MAN" (3 lettres)
+      for (const word of significantWords) {
+        if (word.length >= 3 && normalizedInput.includes(word)) {
+          return presName;
+        }
+      }
+    }
+  }
+  
+  return "HORS PRES / SIÈGE";
+};
+
 export const AVAILABLE_SITES: SiteInfo[] = [
-  { id: 'abidjan', name: 'POLE ABIDJAN', region: 'PRES ABIDJAN', coords: { x: 550, y: 780 } },
-  { id: 'bouake', name: 'POLE BOUAKE', region: 'PRES GBEKE', coords: { x: 480, y: 380 } },
-  { id: 'daloa', name: 'POLE DALOA', region: 'PRES HAUT SASSANDRA', coords: { x: 320, y: 480 } },
-  { id: 'korhogo', name: 'POLE KORHOGO', region: 'PRES PORO', coords: { x: 380, y: 150 } },
-  { id: 'san-pedro', name: 'POLE SAN-PEDRO', region: 'PRES SAN-PEDRO', coords: { x: 280, y: 780 } },
-  { id: 'man', name: 'POLE MAN', region: 'PRES TONPKI', coords: { x: 180, y: 450 } },
-  { id: 'odienne', name: 'POLE ODIENNE', region: 'PRES KABADOUGOU', coords: { x: 180, y: 200 } },
-  { id: 'bondoukou', name: 'POLE BONDOUKOU', region: 'PRES GONTOUGO', coords: { x: 650, y: 320 } },
-  { id: 'abengourou', name: 'POLE ABENGOUROU', region: 'PRES INDENIE DJUABLIN', coords: { x: 620, y: 550 } }
+  { id: 'treichville', name: '01 CRTS TREICHVILLE', region: 'Abidjan', facilities: [], coords: { x: 70, y: 85 } },
+  { id: 'bouake', name: '33 CRTS BOUAKE', region: 'Gbêkê', facilities: [], coords: { x: 55, y: 45 } },
+  { id: 'korhogo', name: '34 CRTS KORHOGO', region: 'Poro', facilities: [], coords: { x: 45, y: 15 } },
+  { id: 'san-pedro', name: '22 CRTS SAN PEDRO', region: 'San-Pédro', facilities: [], coords: { x: 25, y: 88 } },
+  { id: 'daloa', name: '20 CRTS DALOA', region: 'Haut-Sassandra', facilities: [], coords: { x: 35, y: 55 } },
+  { id: 'yamoussoukro', name: '30 CRTS YAMOUSSOUKRO', region: 'Bélier', facilities: [], coords: { x: 50, y: 65 } },
+  { id: 'man', name: '23 CRTS MAN', region: 'Tonpki', facilities: [], coords: { x: 15, y: 45 } }
 ];
 
-const generateRandomCounts = (seed: number, multiplier: number) => {
-  const counts: any = {};
-  BLOOD_GROUPS.forEach((group, idx) => {
-    const val = Math.floor(((seed * (idx + 1)) % 15) * multiplier);
-    counts[group] = group === 'O+' ? val * 3 : (group.includes('-') ? Math.floor(val / 4) : val);
-  });
-  return counts;
+export const INITIAL_DATA: DistributionData = {
+  metadata: {
+    date: '01/01/2025',
+    month: 'JANVIER',
+    site: 'CRTS TREICHVILLE',
+    siteId: 'treichville'
+  },
+  dailySite: [],
+  monthlySite: [],
+  monthlyNational: [],
+  annualTrend: []
 };
-
-const generateMockDataForSite = (site: SiteInfo, month: string, day: string, year: string): DistributionData => {
-  const siteSeed = site.id.length;
-  const monthIdx = MONTHS.indexOf(month) + 1;
-  const dayVal = parseInt(day);
-  const yearVal = parseInt(year);
-  const combinedSeed = siteSeed + monthIdx + dayVal + yearVal;
-
-  const createRows = (mult: number): DistributionRow[] => {
-    const rows: DistributionRow[] = [];
-    const facilities = site.facilities || ['Hôpital Principal'];
-    
-    facilities.forEach((facility, fIdx) => {
-      PRODUCT_TYPES.slice(0, 3).forEach((type, pIdx) => {
-        const counts = generateRandomCounts(combinedSeed + fIdx + pIdx, mult);
-        const total = Object.values(counts).reduce((a: any, b: any) => a + (b as number), 0) as number;
-        const Bd_rendu = Math.floor(total * 0.05 * (combinedSeed % 10) / 10);
-        
-        rows.push({ productType: type, facility: facility, counts, total, Bd_rendu });
-      });
-    });
-    return rows;
-  };
-
-  const stock: StockInfo = {
-    cgr: 500 + (combinedSeed * 13 % 2000),
-    plasma: 100 + (combinedSeed * 7 % 400),
-    plaquettes: 20 + (combinedSeed * 5 % 80),
-    byGroup: BLOOD_GROUPS.reduce((acc, g, idx) => {
-      const units = 50 + (combinedSeed * (idx + 11) % 400);
-      const days = 4 + (idx % 12);
-      return { ...acc, [g]: { units, days } };
-    }, {} as any)
-  };
-
-  const annualTrend: MonthlyTrend[] = MONTHS.map((m, idx) => {
-    const mSeed = siteSeed + idx + yearVal;
-    const base = 500 + (mSeed % 10) * 50;
-    return {
-      month: m.substring(0, 3),
-      total: base,
-      cgr: Math.floor(base * 0.6),
-      plasma: Math.floor(base * 0.25),
-      plaquettes: Math.floor(base * 0.15)
-    };
-  });
-
-  return {
-    metadata: {
-      date: `${day.padStart(2, '0')}/${monthIdx.toString().padStart(2, '0')}/${year}`,
-      month: month.toUpperCase(),
-      site: site.name,
-      siteId: site.id
-    },
-    dailySite: createRows(0.3),
-    monthlySite: createRows(2),
-    monthlyNational: [],
-    annualTrend: annualTrend,
-    stock: stock
-  };
-};
-
-export const GET_DATA_FOR_SITE = (siteId: string, month: string = 'Janvier', day: string = '01', year: string = '2026'): DistributionData => {
-  const site = AVAILABLE_SITES.find(s => s.id === siteId) || AVAILABLE_SITES[0];
-  return generateMockDataForSite(site, month, day, year);
-};
-
-export const INITIAL_DATA: DistributionData = GET_DATA_FOR_SITE('abidjan');
