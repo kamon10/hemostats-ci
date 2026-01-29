@@ -9,7 +9,12 @@ import {
   Award, 
   BarChart2,
   Info,
-  RotateCcw
+  RotateCcw,
+  Target,
+  BarChart3,
+  Zap,
+  ShieldCheck,
+  ArrowUpRight
 } from 'lucide-react';
 
 interface Props {
@@ -20,161 +25,194 @@ interface Props {
 }
 
 const SiteSynthesis: React.FC<Props> = ({ data, darkMode, month, year }) => {
-  const sortedData = useMemo(() => [...data].sort((a, b) => b.total - a.total), [data]);
-  
+  const siteAggregation = useMemo(() => {
+    const map = new Map<string, any>();
+    
+    data.forEach(row => {
+      const site = row.site || 'SITE INCONNU';
+      if (!map.has(site)) {
+        map.set(site, {
+          site,
+          total: 0,
+          Bd_rendu: 0,
+          ...BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: 0 }), {})
+        });
+      }
+      const entry = map.get(site);
+      entry.total += row.total;
+      entry.Bd_rendu += (row.Bd_rendu || 0);
+      BLOOD_GROUPS.forEach(g => {
+        entry[g] += (row.counts[g] || 0);
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [data]);
+
   const stats = useMemo(() => {
-    const total = sortedData.reduce((sum, item) => sum + item.total, 0);
-    const totalRendu = sortedData.reduce((sum, item) => sum + (item.Bd_rendu || 0), 0);
+    const total = siteAggregation.reduce((sum, item) => sum + item.total, 0);
+    const totalRendu = siteAggregation.reduce((sum, item) => sum + item.Bd_rendu, 0);
     const renduPct = total > 0 ? (totalRendu / total * 100).toFixed(2) : "0.00";
-    const leader = sortedData[0] || { site: '-', total: 0 };
-    const average = sortedData.length > 0 ? Math.round(total / sortedData.length) : 0;
+    const leader = siteAggregation[0] || { site: '-', total: 0 };
+    const average = siteAggregation.length > 0 ? Math.round(total / siteAggregation.length) : 0;
     
     return { total, totalRendu, renduPct, leader, average };
-  }, [sortedData]);
+  }, [siteAggregation]);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
-      {/* Section de Statistiques Simples (KPIs) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Volume Global */}
-        <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
-          <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-            <Activity size={80} />
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+      
+      {/* Section PULSES Captivants */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Pulse 1: Volume National (RED HEARTBEAT) */}
+        <div className={`group relative p-8 rounded-[45px] border-2 transition-all duration-500 pulse-red ${darkMode ? 'bg-slate-800/80 border-red-500/20' : 'bg-white border-red-500/10 shadow-2xl shadow-red-500/10'}`}>
+          <div className="absolute -top-4 -right-4 bg-red-600 text-white p-3 rounded-2xl shadow-lg animate-bounce">
+            <Zap size={20} fill="currentColor" />
           </div>
-          <div className="relative z-10">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <TrendingUp size={12} className="text-red-600" />
-              Volume Global
-            </p>
-            <div className="text-3xl font-black tracking-tighter text-red-600 mb-1 tabular-nums">
-              {stats.total.toLocaleString('fr-FR')}
+          <p className="text-[11px] font-black text-red-600 uppercase tracking-[0.4em] mb-4 flex items-center gap-2">
+            <Activity size={14} /> Flux National Live
+          </p>
+          <div className="space-y-1">
+            <h4 className="text-6xl font-black tracking-tighter text-slate-900 dark:text-white tabular-nums">
+              {stats.total.toLocaleString()}
+            </h4>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Unités PSL Distribuées</p>
+          </div>
+          <div className="mt-8 flex items-center justify-between border-t border-red-500/10 pt-6">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black text-slate-400 uppercase">Période</span>
+              <span className="text-sm font-black uppercase text-slate-700 dark:text-slate-300">{month} {year}</span>
             </div>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Distribuées en {month}</p>
+            <ArrowUpRight className="text-red-500 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" size={24} />
           </div>
         </div>
 
-        {/* TOTAL RENDU POCHES KPI */}
-        <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
-          <div className="relative z-10">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <RotateCcw size={12} className="text-purple-600" />
-              TOTAL RENDU POCHES
-            </p>
-            <div className="text-3xl font-black tracking-tighter text-purple-600 mb-1 tabular-nums">
-              {stats.totalRendu.toLocaleString('fr-FR')}
-              <span className="text-xs font-bold text-purple-400 ml-2">({stats.renduPct}%)</span>
+        {/* Pulse 2: Rendus (PURPLE GLOW) */}
+        <div className={`group relative p-8 rounded-[45px] border-2 transition-all duration-500 pulse-purple ${darkMode ? 'bg-slate-800/80 border-purple-500/20' : 'bg-white border-purple-500/10 shadow-2xl shadow-purple-500/10'}`}>
+          <p className="text-[11px] font-black text-purple-600 uppercase tracking-[0.4em] mb-4 flex items-center gap-2">
+            <RotateCcw size={14} /> Efficiency Rate
+          </p>
+          <div className="space-y-1">
+            <h4 className="text-6xl font-black tracking-tighter text-purple-600 tabular-nums">
+              {stats.renduPct}<span className="text-2xl">%</span>
+            </h4>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Taux de Retour au Stock</p>
+          </div>
+          <div className="mt-8 flex items-center justify-between border-t border-purple-500/10 pt-6">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black text-slate-400 uppercase">Volume Rendu</span>
+              <span className="text-sm font-black uppercase text-slate-700 dark:text-slate-300">{stats.totalRendu.toLocaleString()} poches</span>
             </div>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Retours consolidés</p>
+            <div className="p-2 bg-purple-600/10 rounded-full">
+              <TrendingUp className="text-purple-600" size={20} />
+            </div>
           </div>
         </div>
 
-        {/* Site Leader */}
-        <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
-          <div className="relative z-10">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <Award size={12} className="text-amber-500" />
-              Top Site
-            </p>
-            <div className="text-xl font-black tracking-tight text-slate-800 dark:text-white mb-1 uppercase truncate" title={stats.leader.site}>
-              {stats.leader.site.replace('CRTS ', '').replace('SITE ', '')}
+        {/* Pulse 3: Top Site (INDIGO SHOCK) */}
+        <div className={`group relative p-8 rounded-[45px] border-2 transition-all duration-500 pulse-indigo ${darkMode ? 'bg-slate-800/80 border-indigo-500/20' : 'bg-white border-indigo-500/10 shadow-2xl shadow-indigo-500/10'}`}>
+          <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] mb-4 flex items-center gap-2">
+            <Award size={14} /> Performance Elite
+          </p>
+          <div className="space-y-1">
+            <h4 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white uppercase truncate">
+              {stats.leader.site.replace('CRTS ', '')}
+            </h4>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Centre Leader en Distribution</p>
+          </div>
+          <div className="mt-8 flex items-center justify-between border-t border-indigo-500/10 pt-6">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black text-slate-400 uppercase">Contribution</span>
+              <span className="text-sm font-black uppercase text-indigo-600">{( (stats.leader.total / stats.total) * 100).toFixed(1)}% du Volume</span>
             </div>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{stats.leader.total.toLocaleString('fr-FR')} unités</p>
+            <ShieldCheck className="text-indigo-600" size={24} />
           </div>
         </div>
 
-        {/* Moyenne par Centre */}
-        <div className={`p-6 rounded-[32px] border relative overflow-hidden transition-all hover:scale-[1.02] ${darkMode ? 'bg-slate-800 border-slate-700 shadow-2xl shadow-black/20' : 'bg-white border-slate-100 shadow-sm'}`}>
-          <div className="relative z-10">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-              <BarChart2 size={12} className="text-blue-500" />
-              Moyenne/Site
-            </p>
-            <div className="text-3xl font-black tracking-tighter text-slate-800 dark:text-white mb-1 tabular-nums">
-              {stats.average.toLocaleString('fr-FR')}
-            </div>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Sur {data.length} sites</p>
-          </div>
-        </div>
       </div>
 
-      {/* Tableau Récapitulatif National */}
-      <div className={`p-8 rounded-[40px] border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100 shadow-sm'}`}>
-        <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-2 mb-1">
-              <FileSpreadsheet size={16} className="text-red-600" />
-              Récapitulatif National par Site ({month} {year})
-            </h3>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Données consolidées avec TOTAL RENDU POCHES</p>
+      {/* Tableau Consolidé - Design Premium */}
+      <div className={`p-10 rounded-[50px] border shadow-2xl ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white border-slate-100'}`}>
+        <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-1.5 h-12 bg-red-600 rounded-full"></div>
+            <div>
+              <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
+                <FileSpreadsheet size={24} className="text-red-600" />
+                Consolidé par Centre de Transfusion
+              </h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Données auditées en temps réel • {month} {year}</p>
+            </div>
           </div>
-          <div className="no-print">
-             <div className={`px-4 py-2 rounded-xl border flex items-center gap-3 ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
-                <Info size={14} className="text-blue-500" />
-                <span className="text-[9px] font-black uppercase tracking-widest">Suivi des distributions et retours</span>
-             </div>
+          
+          <div className="flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-2xl">
+            <BarChart2 size={18} />
+            <span className="text-[10px] font-black uppercase tracking-widest">{siteAggregation.length} Sites Actifs</span>
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-3xl border border-slate-100 dark:border-slate-700 shadow-inner">
-          <table className="w-full text-left border-collapse table-fixed min-w-[1100px]">
+        <div className="overflow-x-auto rounded-[35px] border border-slate-100 dark:border-slate-700 shadow-inner">
+          <table className="w-full text-left border-collapse table-fixed min-w-[1200px]">
             <thead>
-              <tr className={`${darkMode ? 'bg-slate-700/50 text-slate-300' : 'bg-slate-50/80 text-slate-600'}`}>
-                <th className="w-16 px-4 py-5 text-[9px] font-black uppercase tracking-widest text-center sticky left-0 z-20 bg-inherit border-r border-slate-200/20"><Hash size={12} className="mx-auto" /></th>
-                <th className="w-48 px-6 py-5 text-[10px] font-black uppercase tracking-widest sticky left-16 z-20 bg-inherit border-r border-slate-200/20">SITE CNTSCI</th>
+              <tr className={`${darkMode ? 'bg-slate-700/80 text-slate-300' : 'bg-slate-50/80 text-slate-600'}`}>
+                <th className="w-20 px-6 py-6 text-[10px] font-black uppercase tracking-widest text-center">#</th>
+                <th className="w-64 px-6 py-6 text-[10px] font-black uppercase tracking-widest">Centre Transfusionnel</th>
                 {BLOOD_GROUPS.map(g => (
-                  <th key={g} className="px-4 py-5 text-[10px] font-black uppercase tracking-widest text-center">{g}</th>
+                  <th key={g} className="px-4 py-6 text-[10px] font-black uppercase tracking-widest text-center">{g}</th>
                 ))}
-                <th className="w-24 px-4 py-5 text-[10px] font-black uppercase tracking-widest text-center text-purple-600">RENDU</th>
-                <th className="w-32 px-6 py-5 text-[10px] font-black uppercase tracking-widest text-right bg-red-600/5 text-red-600">TOTAL UNITS</th>
+                <th className="w-32 px-4 py-6 text-[10px] font-black uppercase tracking-widest text-center text-purple-600">RENDU</th>
+                <th className="w-40 px-8 py-6 text-[11px] font-black uppercase tracking-widest text-right bg-red-600 text-white">TOTAL</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-              {sortedData.map((row, idx) => (
-                <tr key={idx} className="group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <td className="px-4 py-5 text-center sticky left-0 z-10 bg-inherit border-r border-slate-100 dark:border-slate-700">
-                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black ${idx < 3 ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {siteAggregation.map((row, idx) => (
+                <tr key={idx} className="group hover:bg-red-50/30 dark:hover:bg-red-900/10 transition-all duration-300">
+                  <td className="px-6 py-6 text-center">
+                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-xl text-xs font-black ${idx < 3 ? 'bg-red-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
                       {idx + 1}
                     </span>
                   </td>
-                  <td className="px-6 py-5 text-xs font-black uppercase tracking-tighter sticky left-16 z-10 bg-inherit border-r border-slate-100 dark:border-slate-700 group-hover:text-red-600 transition-colors truncate">
-                    {row.site}
+                  <td className="px-6 py-6">
+                    <p className="text-sm font-black uppercase tracking-tighter text-slate-800 dark:text-white group-hover:text-red-600 transition-colors">
+                      {row.site}
+                    </p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Côte d'Ivoire</p>
                   </td>
                   {BLOOD_GROUPS.map(g => (
-                    <td key={g} className="px-2 py-5 text-center">
-                      <span className={`text-xs tabular-nums ${row[g] > 0 ? 'font-black text-slate-700 dark:text-slate-200' : 'text-slate-200 dark:text-slate-700'}`}>
+                    <td key={g} className="px-4 py-6 text-center">
+                      <span className={`text-xs tabular-nums ${row[g] > 0 ? 'font-black text-slate-800 dark:text-slate-100' : 'text-slate-200 dark:text-slate-700'}`}>
                         {row[g] || 0}
                       </span>
                     </td>
                   ))}
-                  <td className="px-2 py-5 text-center">
-                    <span className={`text-xs tabular-nums font-bold text-purple-600`}>
+                  <td className="px-4 py-6 text-center">
+                    <span className={`text-xs tabular-nums font-black text-purple-600 bg-purple-600/5 px-3 py-1.5 rounded-lg border border-purple-500/10`}>
                       {row.Bd_rendu || 0}
                     </span>
                   </td>
-                  <td className="px-6 py-5 text-sm font-black text-right tabular-nums bg-red-600/5 text-red-600 border-l border-red-100/10">
-                    {row.total.toLocaleString('fr-FR')}
+                  <td className="px-8 py-6 text-base font-black text-right tabular-nums bg-red-600/5 text-red-600 group-hover:bg-red-600 group-hover:text-white transition-all">
+                    {row.total.toLocaleString()}
                   </td>
                 </tr>
               ))}
             </tbody>
-            {data.length > 0 && (
-              <tfoot className="sticky bottom-0 z-30">
-                <tr className={`${darkMode ? 'bg-slate-700 text-white' : 'bg-slate-900 text-white'} font-black shadow-[0_-10px_30px_rgba(0,0,0,0.2)]`}>
-                  <td colSpan={2} className="px-6 py-6 text-[11px] uppercase tracking-[0.2em] text-center">TOTAL NATIONAL CONSOLIDÉ</td>
+            <tfoot className="sticky bottom-0">
+               <tr className="bg-slate-900 text-white font-black">
+                  <td colSpan={2} className="px-8 py-8 text-xs uppercase tracking-[0.3em]">Total National Consolidé</td>
                   {BLOOD_GROUPS.map(g => (
-                    <td key={g} className="px-2 py-6 text-sm text-center tabular-nums">
-                      {data.reduce((sum, row) => sum + (row[g] || 0), 0).toLocaleString('fr-FR')}
+                    <td key={g} className="px-4 py-8 text-base text-center tabular-nums">
+                      {siteAggregation.reduce((sum, row) => sum + (row[g] || 0), 0).toLocaleString()}
                     </td>
                   ))}
-                  <td className="px-2 py-6 text-sm text-center tabular-nums text-purple-400">
-                    {stats.totalRendu.toLocaleString('fr-FR')}
+                  <td className="px-4 py-8 text-base text-center tabular-nums text-purple-400">
+                    {stats.totalRendu.toLocaleString()}
                   </td>
-                  <td className="px-6 py-6 text-lg text-right tabular-nums bg-red-600">
-                    {stats.total.toLocaleString('fr-FR')}
+                  <td className="px-8 py-8 text-2xl text-right tabular-nums bg-red-600">
+                    {stats.total.toLocaleString()}
                   </td>
-                </tr>
-              </tfoot>
-            )}
+               </tr>
+            </tfoot>
           </table>
         </div>
       </div>
