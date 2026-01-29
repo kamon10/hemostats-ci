@@ -1,115 +1,139 @@
 
-import { DistributionRowExtended } from '../App';
-import { BLOOD_GROUPS } from '../constants';
+import { DistributionRowExtended } from '../types';
+import { BLOOD_GROUPS, MONTHS, GET_PRES_FOR_SITE } from '../constants';
 
-const SHEET_ID = "1iHaD6NfDQ0xKJP9lhhGdNn3eakmT1qUvu-YIL7kBXWg";
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+const CSV_SOURCE_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQvWxbSrjoG4XC2svVnGtLwYDEomCtuwW2Ap_vHKP0M6ONojDQU5LKTJj8Srel5k1d1mD9UI3F5R6r_/pub?gid=237684642&single=true&output=csv";
 
 export const fetchSheetData = async (): Promise<DistributionRowExtended[]> => {
   try {
-    console.log("Fetching data from:", CSV_URL);
-    const response = await fetch(CSV_URL);
-    if (!response.ok) throw new Error("Impossible d'accéder au flux CSV du Google Sheet. Vérifiez qu'il est 'Publié sur le Web'.");
+    const response = await fetch(CSV_SOURCE_URL, {
+      method: 'GET',
+      cache: 'no-store',
+      mode: 'cors'
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP: ${response.status} - ${response.statusText}`);
+    }
     
     const csvText = await response.text();
-    console.log("CSV Received, length:", csvText.length);
     
-    const rows = parseCSV(csvText);
-    console.log("Parsed rows count:", rows.length);
+    if (!csvText || csvText.trim().toLowerCase().startsWith("<!doctype html") || csvText.includes("login")) {
+      console.warn("Le flux retourné n'est pas un CSV valide.");
+      return [];
+    }
     
-    return rows;
+    return parseCSV(csvText);
   } catch (error) {
-    console.error("Sheet Service Error:", error);
-    throw error;
+    console.error("Erreur critique lors de la synchronisation des données:", error);
+    return [];
   }
 };
 
-/**
- * Parseur CSV robuste gérant les virgules dans les guillemets et les champs vides
- */
 const parseCSV = (csv: string): DistributionRowExtended[] => {
-  const lines = csv.split(/\r?\n/);
+  const lines = csv.split(/\r?\n/).filter(line => line.trim() !== "");
   if (lines.length < 2) return [];
 
-  // 1. Extraire et nettoyer les en-têtes
-  const headers = splitCSVLine(lines[0]).map(h => h.trim().toUpperCase());
-  console.log("Detected Headers:", headers);
+  const delimiter = ',';
   
-  // 2. Trouver les indices des colonnes critiques
-  const findIdx = (keywords: string[]) => 
-    headers.findIndex(h => keywords.some(k => h.includes(k)));
-
-  const colIndex = {
-    site: findIdx(['SI_NOM', 'SITE']),
-    facility: findIdx(['FS_NOM', 'STRUCTURE', 'ETABLISSEMENT']),
-    product: findIdx(['NA_LIBELLE', 'PRODUIT', 'TYPE']),
-    rendu: findIdx(['RENDU', 'BD_RENDU']),
-    date: findIdx(['DATE', 'JOUR']),
-    month: findIdx(['MOIS']),
-    year: findIdx(['ANNEE', 'YEAR']),
-    groups: BLOOD_GROUPS.reduce((acc, g) => {
-      // Recherche exacte pour les groupes sanguins (A+, O-, etc.)
-      acc[g] = headers.indexOf(g.toUpperCase());
-      return acc;
-    }, {} as Record<string, number>)
+  const splitLine = (text: string) => {
+    const parts = [];
+    let current = "";
+    let inQuotes = false;
+    for (let char of text) {
+      if (char === '"') inQuotes = !inQuotes;
+      else if (char === delimiter && !inQuotes) {
+        parts.push(current.trim());
+        current = "";
+      } else current += char;
+    }
+    parts.push(current.trim());
+    return parts.map(v => v.replace(/^"|"$/g, '').trim());
   };
 
-  const results: DistributionRowExtended[] = [];
+  const rawHeaders = splitLine(lines[0]);
+  const headers = rawHeaders.map(h => 
+    h.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9_+]/g, "_")
+  );
 
-  // 3. Parser les lignes de données
+  const getIdx = (keywords: string[]) => 
+    headers.findIndex(h => keywords.some(k => h === k.toUpperCase() || h.includes(k.toUpperCase())));
+
+  const colIndex = {
+    site: getIdx(['SI_NOM_COMPLET', 'SI_NOM', 'SITE']),
+    date: getIdx(['DATE_DISTRI', 'DATE', 'JOUR']),
+    count: getIdx(['NOMBRE', 'QUANTITE', 'NB']),
+    product: getIdx(['NA_LIBELLE', 'PRODUIT', 'TYPE']),
+    group: getIdx(['SA_GROUPE', 'GROUPE', 'GS']),
+    facility: getIdx(['FS_NOM', 'ETABLISSEMENT', 'STRUCTURE']),
+    rendu: getIdx(['BD_RENDU', 'RENDU'])
+  };
+
+  const aggregationMap: Map<string, DistributionRowExtended> = new Map();
+
   for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    
-    const values = splitCSVLine(line);
-    if (values.length < headers.length / 2) continue; // Ligne malformée
+    const values = splitLine(lines[i]);
+    if (values.length < 5) continue;
 
-    const counts: any = {};
-    let rowTotal = 0;
-    
-    BLOOD_GROUPS.forEach(g => {
-      const idx = colIndex.groups[g];
-      const val = idx !== -1 ? (parseInt(values[idx].replace(/\s/g, '')) || 0) : 0;
-      counts[g] = val;
-      rowTotal += val;
-    });
+    const site = values[colIndex.site] || "SITE INCONNU";
+    const pres = GET_PRES_FOR_SITE(site); // Détection du PRES
+    const rawDate = values[colIndex.date] || "";
+    const count = parseInt((values[colIndex.count] || "0").replace(/\s/g, '')) || 0;
+    const product = values[colIndex.product] || "PRODUIT SANGUIN";
+    const rawGroup = (values[colIndex.group] || "").toUpperCase().replace(/\s/g, '');
+    const facility = values[colIndex.facility] || "HÔPITAL NON SPÉCIFIÉ";
+    const rendu = parseInt((values[colIndex.rendu] || "0").replace(/\s/g, '')) || 0;
 
-    results.push({
-      site: values[colIndex.site] || 'SITE INCONNU',
-      facility: values[colIndex.facility] || 'STRUCTURE INCONNUE',
-      productType: values[colIndex.product] || 'PRODUIT SANS NOM',
-      counts: counts,
-      total: rowTotal,
-      Bd_rendu: colIndex.rendu !== -1 ? (parseInt(values[colIndex.rendu].replace(/\s/g, '')) || 0) : 0,
-      // On stocke les métadonnées temporelles si présentes pour le filtrage
-      date: colIndex.date !== -1 ? values[colIndex.date] : undefined,
-      month: colIndex.month !== -1 ? values[colIndex.month] : undefined,
-      year: colIndex.year !== -1 ? values[colIndex.year] : undefined
-    });
-  }
-
-  return results;
-};
-
-/**
- * Fonction utilitaire pour découper une ligne CSV en respectant les guillemets
- */
-function splitCSVLine(line: string): string[] {
-  const result = [];
-  let curValue = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(curValue.trim().replace(/^"|"$/g, ''));
-      curValue = "";
-    } else {
-      curValue += char;
+    let day = 0, monthIdx = -1, year = 0, dateStr = "";
+    if (rawDate) {
+      const parts = rawDate.split(/[/ -]/);
+      if (parts.length >= 3) {
+        let d, m, y;
+        if (parts[0].length === 4) { y = parseInt(parts[0]); m = parseInt(parts[1]); d = parseInt(parts[2]); } 
+        else { d = parseInt(parts[0]); m = parseInt(parts[1]); y = parseInt(parts[2]); }
+        
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+          day = d; monthIdx = m - 1; year = y;
+          dateStr = `${d.toString().padStart(2, '0')}/${m.toString().padStart(2, '0')}/${y}`;
+        }
+      }
     }
+
+    if (year === 0) continue;
+
+    const key = `${pres}|${site}|${facility}|${product}|${dateStr}`;
+    
+    if (!aggregationMap.has(key)) {
+      aggregationMap.set(key, {
+        site,
+        pres,
+        facility,
+        productType: product,
+        dateStr,
+        day,
+        monthIdx,
+        year,
+        monthName: MONTHS[monthIdx] || "Inconnu",
+        counts: BLOOD_GROUPS.reduce((acc, g) => ({ ...acc, [g]: 0 }), {} as Record<string, number>),
+        total: 0,
+        Bd_rendu: 0
+      } as any);
+    }
+
+    const entry = aggregationMap.get(key)!;
+    const normalizedRawGroup = rawGroup.replace('POS', '+').replace('NEG', '-').replace(/\s/g, '');
+    
+    const matchedGroup = BLOOD_GROUPS.find(bg => 
+      normalizedRawGroup === bg || normalizedRawGroup.includes(bg)
+    );
+
+    if (matchedGroup) {
+      entry.counts[matchedGroup] += count;
+      entry.total += count;
+    }
+    
+    entry.Bd_rendu += rendu;
   }
-  result.push(curValue.trim().replace(/^"|"$/g, ''));
-  return result;
-}
+
+  return Array.from(aggregationMap.values());
+};
