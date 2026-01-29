@@ -64,6 +64,19 @@ const App: React.FC = () => {
       setCustomData(data);
       setLastSync(new Date().toLocaleTimeString('fr-FR'));
       setHasInitialSyncDone(true);
+
+      // Auto-positionner sur la date la plus récente du fichier
+      if (data.length > 0) {
+        const sortedData = [...data].sort((a, b) => {
+          const dateA = new Date(a.year, a.monthIdx, a.day).getTime();
+          const dateB = new Date(b.year, b.monthIdx, b.day).getTime();
+          return dateB - dateA; // Descendant (plus récent en haut)
+        });
+        const latest = sortedData[0];
+        setSelectedYear(latest.year.toString());
+        setSelectedMonth(MONTHS[latest.monthIdx]);
+        setSelectedDay(latest.day.toString().padStart(2, '0'));
+      }
     } catch (err) {
       console.error("Sync Error:", err);
       setCustomData([]);
